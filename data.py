@@ -7,6 +7,14 @@ class MaterialResources:
     wealth: int = 0
     metal: int = 0
 
+    @classmethod
+    def empty_resources(cls):
+        return MaterialResources(
+            food=0,
+            timber=0,
+            wealth=0,
+            metal=0
+        )
 @dataclass
 class Population:
     ages: list[int] = [0]*100 # the nth index corresponds to the number of people who are n years old
