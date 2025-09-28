@@ -1,20 +1,25 @@
 from dataclasses import dataclass
-from City import City
-from data import MaterialResources
+
+from data import CityResources
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from city import City
 
 # each of the effects are applied to the city each tick
 @dataclass
 class Effects:
     duration_in_ticks: int = 0
 
-    material_resources_per_tick: MaterialResources = MaterialResources.empty_resources()
-    morale_per_tick: float 
-    knowledge_per_tick: int
+    material_resources_per_tick: CityResources = CityResources.empty_resources()
+    morale_per_tick: float = 0.0
+    knowledge_per_tick: int = 0
 
     @classmethod
     def empty_effects(cls):
         return Effects(duration_in_ticks=0,
-                       material_resources_per_tick=MaterialResources.empty_resources(),
+                       material_resources_per_tick=CityResources.empty_resources(),
                        knowledge_per_tick=0)
     
 @dataclass

@@ -20,5 +20,5 @@ class Job:
         return self._result
     
     @property
-    def _is_upgrade(self) -> bool:
+    def is_upgrade(self) -> bool:
         return self._is_upgrade

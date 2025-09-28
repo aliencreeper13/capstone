@@ -1,7 +1,7 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 @dataclass
-class MaterialResources:
+class CityResources:
     food: int = 0
     timber: int = 0
     wealth: int = 0
@@ -9,7 +9,7 @@ class MaterialResources:
 
     @classmethod
     def empty_resources(cls):
-        return MaterialResources(
+        return CityResources(
             food=0,
             timber=0,
             wealth=0,
@@ -17,8 +17,8 @@ class MaterialResources:
         )
 @dataclass
 class Population:
-    ages: list[int] = [0]*100 # the nth index corresponds to the number of people who are n years old
-    ages_can_work: list[int] = [0]*100 # the nth index corresponds to the number of people who are n years old AND have the skills to work
+    ages: list[int] = field(default_factory=lambda: [0]*100) # the nth index corresponds to the number of people who are n years old
+    ages_can_work: list[int] = field(default_factory=lambda: [0]*100) # the nth index corresponds to the number of people who are n years old AND have the skills to work
 
     def working_age(self, minimum: int, maximum: int):
         num = 0

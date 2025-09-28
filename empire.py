@@ -1,10 +1,16 @@
 from __future__ import annotations
 
-from data import EmpireResources
-from City import City
-from game import Game, EmptyGame
-from effects import Effects
+from typing import TYPE_CHECKING, Optional
 
+from constants import HALF_AUTONOMY
+from data import EmpireResources
+
+from game import Game, EmptyGame
+# from effects import Effects
+
+
+if TYPE_CHECKING:
+    from city import City
 
 class Empire:
     def __init__(self, autonomy: int):
@@ -12,18 +18,18 @@ class Empire:
         self.empire_resources = EmpireResources()
 
         self.cities: list[City] = []
-        self.capital: Empire = EmptyEmpire()
+        self.capital: Optional[Empire] = None
 
         self._knowledge: int = 50
 
         self._autonomy = autonomy
 
-        self._game: Game = EmptyGame()
+        self._game: Optional[Game] = None
 
         
 
     def assigned_to_game(self) -> bool:
-        return not self._game is EmptyGame()
+        return not self._game is None
 
     def assign_to_game(self, game: Game):
         if not self.assigned_to_game():  # only assign to a game if it is currently not assigned
@@ -62,15 +68,22 @@ class Empire:
     
     # updates all data to next tick
     def update(self, current_tick: int):
-        pass
+        for city in self.cities:
+            print("updating city", city)
+            city.update()
 
 
 class EmptyEmpire(Empire):
     """
     A city's allegiance to this empire means that the city has NO allegiance
     """
-    # this makes this a singleton class
     def __new__(cls):
-        if not hasattr(cls, 'instance'):
-            cls.instance = super(EmptyEmpire, cls).__new__(cls)
+        if not hasattr(cls, "instance"):
+            cls.instance = super().__new__(cls)
+            # Call Empire.__init__ *only once*, right after creating the instance
+            Empire.__init__(cls.instance, autonomy=0)
         return cls.instance
+    
+    def __init__(self):
+        # Override __init__ so Empire.__init__ is NOT called again
+        pass

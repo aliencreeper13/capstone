@@ -1,7 +1,7 @@
 from __future__ import annotations # avoid circular import error
 
-from Empire import Empire, EmptyEmpire
-from data import MaterialResources, Population, SocietalResources
+from empire import Empire, EmptyEmpire
+from data import CityResources, Population, SocietalResources
 from building import Building
 from typing import Optional
 from queue import Queue
@@ -11,12 +11,12 @@ from effects import EffectWithTicksleft, Effects
 from utils import new_production_rate_given_morale
 
 class City:
-    def __init__(self, capital=False, size: int = 5, morale: int = 50):
-        self.resources: MaterialResources = MaterialResources()
+    def __init__(self, capital=False, size: int = 5, morale: float = 50.0):
+        self.resources: CityResources = CityResources()
         self.societal_resources: SocietalResources = SocietalResources()
         self.defense = 100
         self.capital = capital
-        self._allegiance: Empire = EmptyEmpire() # start off with no allegiance
+        self._allegiance: Optional[Empire] = None # start off with no allegiance
         self._size = size
         self._morale = morale
 
@@ -24,7 +24,7 @@ class City:
         self._running_jobs: list[Job] = [] # represents all running jobs (construction, etc.)
 
         # {`ticks left until finished`: effect}
-        self._effects: list[EffectWithTicksleft] = []
+        self._effects_with_ticks_left: list[EffectWithTicksleft] = []
 
     # this runs every tick
     def mainloop():
@@ -55,7 +55,7 @@ class City:
         self._allegiance = allegiance
 
     def declare_independence(self):
-        self._allegiance = EmptyEmpire()
+        self._allegiance = None
 
     def remove_as_capital(self):
         self.capital = False
@@ -78,7 +78,8 @@ class City:
         assert not building in self._buildings
 
         self._buildings.append(building)
-        self._effects.append(EffectWithTicksleft(effects=building.effects, 
+        building.set_city(self)
+        self._effects_with_ticks_left.append(EffectWithTicksleft(effects=building.effects, 
                                                  ticks_left=building.effects.duration_in_ticks))  # add building's effects
 
     def _upgrade_building(self, building: Building):
@@ -107,24 +108,30 @@ class City:
 
         self._morale += effects.morale_per_tick
 
+    def add_job(self, job: Job):
+        self._running_jobs.append(job)
+        return
+
     def update(self):
         for job in self._running_jobs:
+            print("progressing job", job)
             job.progress()
             if job.is_finished():
                 
                 if isinstance(job.result, Building):
-                    if job._is_upgrade():
+                    if job._is_upgrade:
                         self._upgrade_building(job.result)
                     else:
                         self._add_building(job.result)
-
+                print("Finished job!")
                 self._running_jobs.remove(job)
+                print("Buildings:", self._buildings)
 
-        for effects_with_ticks_left in (self._effects):
+        for effects_with_ticks_left in (self._effects_with_ticks_left):
             self.apply_effects(effects_with_ticks_left.effects)
             effects_with_ticks_left.progress()
             if effects_with_ticks_left.is_finished():
-                self._effects.remove(effects_with_ticks_left)
+                self._effects_with_ticks_left.remove(effects_with_ticks_left)
             
 
             
