@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 
 @dataclass
@@ -15,6 +17,15 @@ class CityResources:
             wealth=0,
             metal=0
         )
+    
+    def __neg__(self) -> CityResources:
+        return CityResources(
+            food=-self.food,
+            timber=-self.timber,
+            wealth=-self.wealth,
+            metal=-self.metal
+        )
+
 @dataclass
 class Population:
     ages: list[int] = field(default_factory=lambda: [0]*100) # the nth index corresponds to the number of people who are n years old

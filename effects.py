@@ -22,6 +22,9 @@ class Effects:
                        material_resources_per_tick=CityResources.empty_resources(),
                        knowledge_per_tick=0)
     
+    def is_indefinite(self) -> bool:
+        return self.duration_in_ticks == 0
+    
 @dataclass
 class EffectWithTicksleft:
     effects: Effects
@@ -34,7 +37,7 @@ class EffectWithTicksleft:
 
     def is_finished(self) -> bool:
         # a duration of 0 ticks indicates indefinite duration
-        if self.effects.duration_in_ticks == 0:
+        if self.effects.is_indefinite():
             return False
         return self.ticks_left <= 0
     

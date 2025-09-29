@@ -34,7 +34,7 @@ class Game:
     def next_tick(self):
         self._current_tick += 1
         for empire in self._empires:
-            print("Updating empire", empire)
+            # print("Updating empire", empire)
             empire.update(self._current_tick)
 
     @property

@@ -6,8 +6,10 @@ from building import Building
 from typing import Optional
 from queue import Queue
 
+from exceptions import RequirementsExeption
 from job import Job
 from effects import EffectWithTicksleft, Effects
+from job_requirements import JobRequirements
 from utils import new_production_rate_given_morale
 
 class City:
@@ -97,24 +99,64 @@ class City:
         assert 0 <= new_morale <= 100
         self._morale = new_morale
 
+    def change_resources(self, delta_city_resources: CityResources):
+        self.resources.food += delta_city_resources.food
+        self.resources.timber += delta_city_resources.timber
+        self.resources.metal += delta_city_resources.metal
+        self.resources.wealth += delta_city_resources.wealth
+
+    def expend_resources(self, city_resources: CityResources):
+        self.resources.food -= city_resources.food
+        self.resources.timber -= city_resources.timber
+        self.resources.metal -= city_resources.metal
+        self.resources.wealth -= city_resources.wealth
     # todo: implement this methods
     def apply_effects(self, effects: Effects, ticks_elapsed=1):
+        
         # affect material resources. The rates given by the effects object are the baseline rate when morale=50
-        self.resources.food += new_production_rate_given_morale(effects.material_resources_per_tick.food, self.morale)
-        self.resources.timber += new_production_rate_given_morale(effects.material_resources_per_tick.timber, self.morale)
-        self.resources.metal += new_production_rate_given_morale(effects.material_resources_per_tick.metal, self.morale)
-        self.resources.wealth += new_production_rate_given_morale(effects.material_resources_per_tick.wealth, self.morale)
+        # self.resources.food += new_production_rate_given_morale(effects.material_resources_per_tick.food, self.morale)
+        # self.resources.timber += new_production_rate_given_morale(effects.material_resources_per_tick.timber, self.morale)
+        # self.resources.metal += new_production_rate_given_morale(effects.material_resources_per_tick.metal, self.morale)
+        # self.resources.wealth += new_production_rate_given_morale(effects.material_resources_per_tick.wealth, self.morale)
 
-
+        self.change_resources(
+            CityResources(
+                food=new_production_rate_given_morale(effects.material_resources_per_tick.food, self.morale),
+                timber=new_production_rate_given_morale(effects.material_resources_per_tick.timber, self.morale),
+                metal=new_production_rate_given_morale(effects.material_resources_per_tick.metal, self.morale),
+                wealth=new_production_rate_given_morale(effects.material_resources_per_tick.wealth, self.morale)
+            )
+        )
         self._morale += effects.morale_per_tick
+        
 
     def add_job(self, job: Job):
-        self._running_jobs.append(job)
+        # todo: make sure that the appropriate resources are present
+        def check_requirements(job: Job) -> bool:
+            """Returns True if requirements are satisfied. False otherwise"""
+            requirements: JobRequirements = job.result.job_requirements
+
+            food_excess = self.resources.food - requirements.food(level=1)
+            timber_excess = self.resources.timber - requirements.timber(level=1)
+            wealth_excess = self.resources.wealth - requirements.wealth(level=1)
+            metal_excess = self.resources.metal - requirements.metal(level=1)
+            
+            if food_excess < 0 or timber_excess < 0 or wealth_excess < 0 or metal_excess < 0:
+                return False
+            else:
+                return True
+        if check_requirements(job):
+            
+            self._running_jobs.append(job)
+        else:
+            raise RequirementsExeption()
+            
         return
 
     def update(self):
+        print(self.resources)
         for job in self._running_jobs:
-            print("progressing job", job)
+            # print("progressing job", job)
             job.progress()
             if job.is_finished():
                 
@@ -125,6 +167,7 @@ class City:
                         self._add_building(job.result)
                 print("Finished job!")
                 self._running_jobs.remove(job)
+                self.expend_resources(job.result.job_requirements.city_resources(level=1)) 
                 print("Buildings:", self._buildings)
 
         for effects_with_ticks_left in (self._effects_with_ticks_left):

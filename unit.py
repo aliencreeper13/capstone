@@ -1,6 +1,6 @@
 from effects import Effects
 
-from building_requirements import BuildingRequirements
+from job_requirements import JobRequirements
 
 class Unit:
     def __init__(self,  name: str, size: int = 1, effects: Effects = Effects):
@@ -23,9 +23,7 @@ class Unit:
     def level(self) -> int:
         return self._level
     
-    @property
-    def requirements(self) -> BuildingRequirements:
-        return self._requirements
+    
     
     def upgrade(self):
         # todo: upgrade effects as well (soon to be implemented)

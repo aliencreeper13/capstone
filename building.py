@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from building_requirements import BuildingRequirements
+from job_requirements import JobRequirements, HasJobRequirementsMixin
 from effects import Effects
 from unit import Unit
 
@@ -12,16 +12,17 @@ if TYPE_CHECKING:
 
     
 
-class Building(Unit):
-    def __init__(self, name: str, size: int, effects: Effects, requirements: BuildingRequirements = BuildingRequirements()):
+class Building(Unit, HasJobRequirementsMixin):
+    def __init__(self, name: str, size: int, effects: Effects, requirements: JobRequirements = JobRequirements()):
         super().__init__(name=name,
                          size=size,
-                         effects=effects)
+                         effects=effects,
+                         )
         self._city: Optional[City] = None # indicates what city it is part of
-        self._requirements: BuildingRequirements = requirements
+        self._requirements: JobRequirements = requirements
     def set_city(self, city: City):
         self._city = city
     
     @property
-    def requirements(self) -> BuildingRequirements:
+    def job_requirements(self) -> JobRequirements:
         return self._requirements
