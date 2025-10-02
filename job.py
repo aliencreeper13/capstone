@@ -9,6 +9,7 @@ class Job:
         self._result: HasJobRequirementsMixin = result 
         self._is_upgrade = is_upgrade
         
+        self._is_destruction: bool = False
     
     def progress(self):
         self._num_ticks -= 1
@@ -25,4 +26,10 @@ class Job:
     @property
     def is_upgrade(self) -> bool:
         return self._is_upgrade
+    
+
+class DestructionJob(Job):
+    def __init__(self, num_ticks, result):
+        super().__init__(num_ticks=num_ticks, result=result, is_upgrade=False)
+        self._is_destruction = True
     

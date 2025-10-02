@@ -4,10 +4,10 @@ from dataclasses import dataclass, field
 
 @dataclass
 class CityResources:
-    food: int = 0
-    timber: int = 0
-    wealth: int = 0
-    metal: int = 0
+    food: float = 0.0
+    timber: float = 0.0
+    wealth: float = 0.0
+    metal: float = 0.0
 
     @classmethod
     def empty_resources(cls):
@@ -36,6 +36,14 @@ class Population:
         for age in range(minimum, maximum + 1):
             num += self.ages[age]
         return num
+    
+    def total(self) -> int:
+        t = 0
+        for age in range(0, len(self.ages)):
+            t += self.ages[age]
+
+        return t
+
 
 
 @dataclass

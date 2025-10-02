@@ -4,7 +4,7 @@ from building import Building
 from job_requirements import JobRequirements
 from city import City
 from data import CityResources
-from effects import Effects
+from effects import Effect
 from game import Game
 from empire import Empire
 from job import Job
@@ -34,7 +34,7 @@ if __name__ == "__main__":
 
     mequon = City(True, 10, 50.0)
     mequon.resources.wealth = 100
-    cuw = Building("CUW", 2, effects=Effects(duration_in_ticks=0,
+    cuw = Building("CUW", 2, effects=Effect(duration_in_ticks=0,
                                             material_resources_per_tick=CityResources(
                                                 wealth=2
                                             )),

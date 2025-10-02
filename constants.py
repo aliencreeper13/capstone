@@ -3,3 +3,12 @@ HALF_MORALE: float = MAX_MORALE / 2
 
 MAX_AUTONOMY: int = 100
 HALF_AUTONOMY: int = MAX_AUTONOMY // 2
+
+
+FOOD_CONSUMPTION_SENSITIVITY = 0.01
+
+LACK_OF_FOOD_MORALE_PENALTY = 0.01
+
+BUILDING_REFUND = 0.3  # e.g. 0.3 = 30% of building's costs will be refunded upon destruction of building
+
+DESTRUCTION_WEALTH_COST_PER_UNIT_SIZE = 10

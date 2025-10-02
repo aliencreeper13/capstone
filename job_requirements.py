@@ -40,5 +40,10 @@ class JobRequirements:
 class HasJobRequirementsMixin:
     @property
     @abstractmethod
-    def job_requirements(self) -> JobRequirements:
+    def creation_job_requirements(self) -> JobRequirements:
+        pass
+    
+    @property
+    @abstractmethod
+    def destruction_job_requirements(self) -> JobRequirements:
         pass

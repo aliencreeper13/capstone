@@ -1,5 +1,8 @@
 from __future__ import annotations # avoid circular import error
 
+from math import ceil
+
+from constants import FOOD_CONSUMPTION_SENSITIVITY, LACK_OF_FOOD_MORALE_PENALTY
 from empire import Empire, EmptyEmpire
 from data import CityResources, Population, SocietalResources
 from building import Building
@@ -8,7 +11,7 @@ from queue import Queue
 
 from exceptions import RequirementsExeption
 from job import Job
-from effects import EffectWithTicksleft, Effects
+from effects import EffectWithTicksleft, Effect
 from job_requirements import JobRequirements
 from utils import new_production_rate_given_morale
 
@@ -16,7 +19,7 @@ class City:
     def __init__(self, capital=False, size: int = 5, morale: float = 50.0):
         self.resources: CityResources = CityResources()
         self.societal_resources: SocietalResources = SocietalResources()
-        self.defense = 100
+        self._defense = 100
         self.capital = capital
         self._allegiance: Optional[Empire] = None # start off with no allegiance
         self._size = size
@@ -26,7 +29,7 @@ class City:
         self._running_jobs: list[Job] = [] # represents all running jobs (construction, etc.)
 
         # {`ticks left until finished`: effect}
-        self._effects_with_ticks_left: list[EffectWithTicksleft] = []
+        self._effect_with_ticks_left: list[EffectWithTicksleft] = []
 
     # this runs every tick
     def mainloop():
@@ -47,6 +50,10 @@ class City:
     
     def gain_knowledge(self, value): 
         self.gain_knowledge += value
+
+    @property
+    def total_population(self) -> int: 
+        return self.societal_resources.population.total()
     
     @property
     def current_tick(self):
@@ -71,6 +78,19 @@ class City:
             total_occupied_space += building.size
 
         return self._size - total_occupied_space
+    
+    def add_effect(self, effects: Effect):
+        self._effect_with_ticks_left.append(EffectWithTicksleft(
+            effect=effects,
+            ticks_left=effects.duration_in_ticks
+        ))
+
+
+    def _destroy_building(self, building: Building):
+        building.set_inactive()
+        self._size += building.size
+        self._buildings.remove(building)
+
 
 
     # private function
@@ -80,9 +100,9 @@ class City:
         assert not building in self._buildings
 
         self._buildings.append(building)
+        self._size -= building.size
         building.set_city(self)
-        self._effects_with_ticks_left.append(EffectWithTicksleft(effects=building.effects, 
-                                                 ticks_left=building.effects.duration_in_ticks))  # add building's effects
+        self.add_effect(self, effects=building.effects)  # add building's effects
 
     def _upgrade_building(self, building: Building):
         assert building in self._buildings
@@ -105,13 +125,31 @@ class City:
         self.resources.metal += delta_city_resources.metal
         self.resources.wealth += delta_city_resources.wealth
 
+        if self.resources.food <= 0:
+            self.resources.food = 0
+        if self.resources.timber <= 0:
+            self.resources.timber = 0
+        if self.resources.metal <= 0:
+            self.resources.metal = 0
+        if self.resources.wealth <= 0:
+            self.resources.wealth = 0
+
     def expend_resources(self, city_resources: CityResources):
         self.resources.food -= city_resources.food
         self.resources.timber -= city_resources.timber
         self.resources.metal -= city_resources.metal
         self.resources.wealth -= city_resources.wealth
+
+        if self.resources.food <= 0:
+            self.resources.food = 0
+        if self.resources.timber <= 0:
+            self.resources.timber = 0
+        if self.resources.metal <= 0:
+            self.resources.metal = 0
+        if self.resources.wealth <= 0:
+            self.resources.wealth = 0
     # todo: implement this methods
-    def apply_effects(self, effects: Effects, ticks_elapsed=1):
+    def _apply_effects(self, effects: Effect, ticks_elapsed=1):
         
         # affect material resources. The rates given by the effects object are the baseline rate when morale=50
         # self.resources.food += new_production_rate_given_morale(effects.material_resources_per_tick.food, self.morale)
@@ -128,13 +166,22 @@ class City:
             )
         )
         self._morale += effects.morale_per_tick
+
+    def _apply_all_effects(self):
+        for effect_with_ticks_left in (self._effect_with_ticks_left):
+            if not effect_with_ticks_left.effect.is_active():  # skip inactive effects
+                continue
+            self._apply_effects(effect_with_ticks_left.effect)
+            effect_with_ticks_left.progress()
+            if effect_with_ticks_left.is_finished():
+                self._effect_with_ticks_left.remove(effect_with_ticks_left)
         
 
     def add_job(self, job: Job):
         # todo: make sure that the appropriate resources are present
         def check_requirements(job: Job) -> bool:
             """Returns True if requirements are satisfied. False otherwise"""
-            requirements: JobRequirements = job.result.job_requirements
+            requirements: JobRequirements = job.result.creation_job_requirements
 
             food_excess = self.resources.food - requirements.food(level=1)
             timber_excess = self.resources.timber - requirements.timber(level=1)
@@ -167,14 +214,23 @@ class City:
                         self._add_building(job.result)
                 print("Finished job!")
                 self._running_jobs.remove(job)
-                self.expend_resources(job.result.job_requirements.city_resources(level=1)) 
+                self.expend_resources(job.result.creation_job_requirements.city_resources(level=1)) 
                 print("Buildings:", self._buildings)
 
-        for effects_with_ticks_left in (self._effects_with_ticks_left):
-            self.apply_effects(effects_with_ticks_left.effects)
-            effects_with_ticks_left.progress()
-            if effects_with_ticks_left.is_finished():
-                self._effects_with_ticks_left.remove(effects_with_ticks_left)
+        # food consumption effect: The higher the population, the more food gets consumed
+        if self.resources.food > 0:
+            self.add_effect(Effect(
+                duration_in_ticks=1,
+                material_resources_per_tick=CityResources(food=-(self.total_population * FOOD_CONSUMPTION_SENSITIVITY))
+            ))
+        # if there is no food left, then morale will be depleted
+        else:
+            self.add_effect(Effect(
+                duration_in_ticks=1,
+                morale_per_tick=-LACK_OF_FOOD_MORALE_PENALTY
+            ))
+
+        self._apply_all_effects()
             
 
             

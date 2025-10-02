@@ -5,7 +5,10 @@ from typing import TYPE_CHECKING, Optional
 from constants import HALF_AUTONOMY
 from data import EmpireResources
 
+from effects import EffectWithTicksleft, Effect, UniversalEffect
+from exceptions import BadEffect, CapitalExclusiveException
 from game import Game, EmptyGame
+from ideology import Ideology
 # from effects import Effects
 
 
@@ -13,12 +16,14 @@ if TYPE_CHECKING:
     from city import City
 
 class Empire:
-    def __init__(self, autonomy: int):
+    def __init__(self, autonomy: int, capital_city: City, ideology: Ideology):
         assert 0 <= autonomy <= 100
         self.empire_resources = EmpireResources()
 
-        self.cities: list[City] = []
-        self.capital: Optional[Empire] = None
+        
+        self._capital: City = capital_city
+
+        self._cities: list[City] = [self._capital]
 
         self._knowledge: int = 50
 
@@ -26,7 +31,24 @@ class Empire:
 
         self._game: Optional[Game] = None
 
+        self._empire_effects_with_ticks_left: list[EffectWithTicksleft] = []
+
+        for ideological_effect in ideology.effects:
+            self.add_universal_or_capital_effect(ideological_effect)
+    
+    def add_universal_or_capital_effect(self, effect: Effect):
+        if not( effect.is_universal() or effect.capital_effect):
+            raise BadEffect()
         
+        # add universal effect to empire list, to keep reference of all universal effects
+        self._empire_effects_with_ticks_left.append(EffectWithTicksleft(
+            effect=effect,
+            ticks_left=effect.duration_in_ticks
+        ))
+
+        # each city gets access to this effect
+        for city in self._cities:
+            city.add_effect(effect)
 
     def assigned_to_game(self) -> bool:
         return not self._game is None
@@ -41,18 +63,18 @@ class Empire:
 
     def add_city(self, city: City):
         city.set_allegiance(self) # set city's allegiance to empire
-        self.cities.append(city)
+        self._cities.append(city)
 
     def remove_city(self, city: City):
         city.declare_independence()
-        self.cities.remove(city)
+        self._cities.remove(city)
 
     def set_city_as_capital(self, city: City):
         if city.allegiance is self:
-            self.capital.remove_as_capital() # current capital
+            self._capital.remove_as_capital() # current capital
 
-            self.capital = city # set as new capital
-            self.capital.set_city_as_capital()
+            self._capital = city # set as new capital
+            self._capital.set_city_as_capital()
 
     @property
     def knowledge(self) -> int: 
@@ -68,7 +90,7 @@ class Empire:
     
     # updates all data to next tick
     def update(self, current_tick: int):
-        for city in self.cities:
+        for city in self._cities:
             print("updating city", city)
             city.update()
 
