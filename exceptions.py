@@ -9,3 +9,9 @@ class CapitalExclusiveException(GameException):
 
 class BadEffect(GameException):
     pass
+
+class BadAllegianceException(GameException):
+    pass
+
+class AlreadyContainedException(GameException):
+    pass

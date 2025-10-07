@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from gameobject import GameObject
+
 @dataclass
-class CityResources:
+class ExpendableCityResources(GameObject):
     food: float = 0.0
     timber: float = 0.0
     wealth: float = 0.0
@@ -11,15 +13,15 @@ class CityResources:
 
     @classmethod
     def empty_resources(cls):
-        return CityResources(
+        return ExpendableCityResources(
             food=0,
             timber=0,
             wealth=0,
             metal=0
         )
     
-    def __neg__(self) -> CityResources:
-        return CityResources(
+    def __neg__(self) -> ExpendableCityResources:
+        return ExpendableCityResources(
             food=-self.food,
             timber=-self.timber,
             wealth=-self.wealth,
@@ -27,7 +29,7 @@ class CityResources:
         )
 
 @dataclass
-class Population:
+class Population(GameObject):
     ages: list[int] = field(default_factory=lambda: [0]*100) # the nth index corresponds to the number of people who are n years old
     ages_can_work: list[int] = field(default_factory=lambda: [0]*100) # the nth index corresponds to the number of people who are n years old AND have the skills to work
 
@@ -47,12 +49,12 @@ class Population:
 
 
 @dataclass
-class SocietalResources:
+class SocietalResources(GameObject):
     population: Population = Population()
     employable_population: int = 0 # must be less than or equal to self.population.working_age
     morale: int = 50 
 
 @dataclass
-class EmpireResources:
+class EmpireResources(GameObject):
     corruption: int = 0
     knowledge: int = 0

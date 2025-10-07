@@ -8,6 +8,7 @@ from data import EmpireResources
 from effects import EffectWithTicksleft, Effect, UniversalEffect
 from exceptions import BadEffect, CapitalExclusiveException
 from game import Game, EmptyGame
+from gameobject import GameObject
 from ideology import Ideology
 # from effects import Effects
 
@@ -15,7 +16,7 @@ from ideology import Ideology
 if TYPE_CHECKING:
     from city import City
 
-class Empire:
+class Empire(GameObject):
     def __init__(self, autonomy: int, capital_city: City, ideology: Ideology):
         assert 0 <= autonomy <= 100
         self.empire_resources = EmpireResources()
@@ -32,7 +33,7 @@ class Empire:
         self._game: Optional[Game] = None
 
         self._empire_effects_with_ticks_left: list[EffectWithTicksleft] = []
-
+        self._ideology: Ideology = ideology
         for ideological_effect in ideology.effects:
             self.add_universal_or_capital_effect(ideological_effect)
     

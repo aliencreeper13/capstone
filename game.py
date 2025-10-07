@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 from time import sleep
+
+from gameobject import GameObject
 if TYPE_CHECKING:
     from empire import Empire
 
-class Game:
+class Game(GameObject):
     def __init__(self, empires: list[Empire] = []):
         self._current_tick: int = 0
         self._empires: list[Empire] = empires

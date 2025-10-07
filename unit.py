@@ -2,9 +2,10 @@ from __future__ import annotations
 from typing import Optional
 from effects import Effect
 
+from gameobject import GameObject
 from job_requirements import JobRequirements
 
-class Unit:
+class Unit(GameObject):
     def __init__(self,  name: str, size: int = 1, effects: Effect = Effect):
         self.name = name
         self._size = size

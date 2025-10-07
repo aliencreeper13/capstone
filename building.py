@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from constants import DESTRUCTION_WEALTH_COST_PER_UNIT_SIZE
-from data import CityResources
+from data import ExpendableCityResources
 from job_requirements import JobRequirements, HasJobRequirementsMixin
 from effects import Effect
 from unit import Unit
@@ -36,7 +36,7 @@ class Building(Unit, HasJobRequirementsMixin):
     @property
     def destruction_job_requirements(self) -> JobRequirements:
         return JobRequirements(
-            city_resources_level1=CityResources(
+            city_resources_level1=ExpendableCityResources(
                 wealth=self.destruction_wealth_cost
             )
         )

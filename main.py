@@ -3,7 +3,7 @@ from __future__ import annotations
 from building import Building
 from job_requirements import JobRequirements
 from city import City
-from data import CityResources
+from data import ExpendableCityResources
 from effects import Effect
 from game import Game
 from empire import Empire
@@ -35,11 +35,11 @@ if __name__ == "__main__":
     mequon = City(True, 10, 50.0)
     mequon.resources.wealth = 100
     cuw = Building("CUW", 2, effects=Effect(duration_in_ticks=0,
-                                            material_resources_per_tick=CityResources(
+                                            material_resources_per_tick=ExpendableCityResources(
                                                 wealth=2
                                             )),
                                             requirements=JobRequirements(
-                                                city_resources_level1=CityResources(
+                                                city_resources_level1=ExpendableCityResources(
                                                     wealth=10
                                                 )
                                             ))

@@ -4,20 +4,21 @@ from math import ceil
 
 from constants import FOOD_CONSUMPTION_SENSITIVITY, LACK_OF_FOOD_MORALE_PENALTY
 from empire import Empire, EmptyEmpire
-from data import CityResources, Population, SocietalResources
+from data import ExpendableCityResources, Population, SocietalResources
 from building import Building
 from typing import Optional
 from queue import Queue
 
 from exceptions import RequirementsExeption
+from gameobject import GameObject
 from job import Job
 from effects import EffectWithTicksleft, Effect
 from job_requirements import JobRequirements
-from utils import new_production_rate_given_morale
+from utils import new_value_given_morale
 
-class City:
+class City(GameObject):
     def __init__(self, capital=False, size: int = 5, morale: float = 50.0):
-        self.resources: CityResources = CityResources()
+        self.resources: ExpendableCityResources = ExpendableCityResources()
         self.societal_resources: SocietalResources = SocietalResources()
         self._defense = 100
         self.capital = capital
@@ -31,9 +32,6 @@ class City:
         # {`ticks left until finished`: effect}
         self._effect_with_ticks_left: list[EffectWithTicksleft] = []
 
-    # this runs every tick
-    def mainloop():
-        pass
 
     @property
     def allegiance(self):
@@ -43,6 +41,15 @@ class City:
     @property
     def autonomy(self):
         return self.allegiance.autonomy
+    
+    @property
+    def defense(self):
+        base_defense = self._defense
+        for effect_with_tick_left in self._effect_with_ticks_left:
+            if not effect_with_tick_left.is_finished():
+                base_defense += effect_with_tick_left.effect.defense_offered
+
+        return base_defense
     
     @property
     def knowledge(self):
@@ -119,7 +126,7 @@ class City:
         assert 0 <= new_morale <= 100
         self._morale = new_morale
 
-    def change_resources(self, delta_city_resources: CityResources):
+    def change_resources(self, delta_city_resources: ExpendableCityResources):
         self.resources.food += delta_city_resources.food
         self.resources.timber += delta_city_resources.timber
         self.resources.metal += delta_city_resources.metal
@@ -134,7 +141,7 @@ class City:
         if self.resources.wealth <= 0:
             self.resources.wealth = 0
 
-    def expend_resources(self, city_resources: CityResources):
+    def expend_resources(self, city_resources: ExpendableCityResources):
         self.resources.food -= city_resources.food
         self.resources.timber -= city_resources.timber
         self.resources.metal -= city_resources.metal
@@ -158,11 +165,11 @@ class City:
         # self.resources.wealth += new_production_rate_given_morale(effects.material_resources_per_tick.wealth, self.morale)
 
         self.change_resources(
-            CityResources(
-                food=new_production_rate_given_morale(effects.material_resources_per_tick.food, self.morale),
-                timber=new_production_rate_given_morale(effects.material_resources_per_tick.timber, self.morale),
-                metal=new_production_rate_given_morale(effects.material_resources_per_tick.metal, self.morale),
-                wealth=new_production_rate_given_morale(effects.material_resources_per_tick.wealth, self.morale)
+            ExpendableCityResources(
+                food=new_value_given_morale(effects.material_resources_per_tick.food, self.morale),
+                timber=new_value_given_morale(effects.material_resources_per_tick.timber, self.morale),
+                metal=new_value_given_morale(effects.material_resources_per_tick.metal, self.morale),
+                wealth=new_value_given_morale(effects.material_resources_per_tick.wealth, self.morale)
             )
         )
         self._morale += effects.morale_per_tick
@@ -221,7 +228,7 @@ class City:
         if self.resources.food > 0:
             self.add_effect(Effect(
                 duration_in_ticks=1,
-                material_resources_per_tick=CityResources(food=-(self.total_population * FOOD_CONSUMPTION_SENSITIVITY))
+                material_resources_per_tick=ExpendableCityResources(food=-(self.total_population * FOOD_CONSUMPTION_SENSITIVITY))
             ))
         # if there is no food left, then morale will be depleted
         else:

@@ -3,18 +3,19 @@ from __future__ import annotations
 from abc import abstractmethod
 from dataclasses import dataclass
 from math import ceil
-from data import CityResources
+from data import ExpendableCityResources
+from gameobject import GameObject
 
 @dataclass
-class JobRequirements:
+class JobRequirements(GameObject):
 
     knowledge_level1: int = 0
-    city_resources_level1: CityResources = CityResources.empty_resources()
+    city_resources_level1: ExpendableCityResources = ExpendableCityResources.empty_resources()
 
     exponent: float = 1.05
 
-    def city_resources(self, level: int) -> CityResources:
-        return CityResources(
+    def city_resources(self, level: int) -> ExpendableCityResources:
+        return ExpendableCityResources(
             food=ceil(self.city_resources_level1.food * self.exponent**(level - 1)),
             timber=ceil(self.city_resources_level1.timber * self.exponent**(level - 1)),
             wealth=ceil(self.city_resources_level1.wealth * self.exponent**(level - 1)),

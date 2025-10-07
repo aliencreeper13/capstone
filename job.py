@@ -3,7 +3,7 @@ from job_requirements import HasJobRequirementsMixin
 
 
 class Job:
-    def __init__(self, num_ticks: int, result: HasJobRequirementsMixin, is_upgrade: bool): # todo: what type should `result` be?
+    def __init__(self, num_ticks: int, result: HasJobRequirementsMixin, is_upgrade: bool):
         assert num_ticks > 0
         self._num_ticks = num_ticks
         self._result: HasJobRequirementsMixin = result 

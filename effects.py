@@ -1,8 +1,10 @@
 from dataclasses import dataclass
 
-from data import CityResources
+from data import ExpendableCityResources
 
 from typing import TYPE_CHECKING, Optional
+
+from gameobject import GameObject
 
 if TYPE_CHECKING:
     from city import City
@@ -10,10 +12,10 @@ if TYPE_CHECKING:
 
 # each of the effects are applied to the city each tick
 @dataclass
-class Effect:
-    duration_in_ticks: int = 0
+class Effect(GameObject):
+    duration_in_ticks: int = 0  # if duration is 0, then it's indefinite
 
-    material_resources_per_tick: CityResources = CityResources.empty_resources()
+    material_resources_per_tick: ExpendableCityResources = ExpendableCityResources.empty_resources()
     morale_per_tick: float = 0.0
     knowledge_per_tick: int = 0
 
@@ -25,7 +27,7 @@ class Effect:
     @classmethod
     def empty_effects(cls):
         return cls(duration_in_ticks=0,
-                       material_resources_per_tick=CityResources.empty_resources(),
+                       material_resources_per_tick=ExpendableCityResources.empty_resources(),
                        knowledge_per_tick=0)
     
     def is_indefinite(self) -> bool:
