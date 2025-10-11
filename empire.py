@@ -36,6 +36,10 @@ class Empire(GameObject):
         self._ideology: Ideology = ideology
         for ideological_effect in ideology.effects:
             self.add_universal_or_capital_effect(ideological_effect)
+
+    @property
+    def capital(self) -> City:
+        return self._capital
     
     def add_universal_or_capital_effect(self, effect: Effect):
         if not( effect.is_universal() or effect.capital_effect):
@@ -48,8 +52,12 @@ class Empire(GameObject):
         ))
 
         # each city gets access to this effect
+        # yes, even the non-universal capital effect
+        # it's just that the city won't run this effect
+        # unless it becomes the capital
         for city in self._cities:
             city.add_effect(effect)
+
 
     def assigned_to_game(self) -> bool:
         return not self._game is None

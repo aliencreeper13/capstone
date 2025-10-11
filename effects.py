@@ -22,7 +22,7 @@ class Effect(GameObject):
     defense_offered: int = 0
 
     capital_effect: bool = False  # only applies when the city in question is the capital
-    contingent_on: Optional[Unit] = None  # effect only active if unit is active, or if set to None
+    contingent_on: list[Unit] # effect only active if unit is active, or if set to None
 
     @classmethod
     def empty_effects(cls):
@@ -37,10 +37,11 @@ class Effect(GameObject):
         return False
     
     def is_active(self) -> bool:
-        if self.contingent_on is None:
-            return True
-        else:
-            return self.contingent_on.is_active()
+        for unit_ in self.contingent_on:
+            if not unit_.is_active():
+                return False
+            
+        return True
 
 class UniversalEffect(Effect):
     def is_universal(self) -> bool:

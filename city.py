@@ -2,7 +2,7 @@ from __future__ import annotations # avoid circular import error
 
 from math import ceil
 
-from constants import FOOD_CONSUMPTION_SENSITIVITY, LACK_OF_FOOD_MORALE_PENALTY
+from constants import FOOD_CONSUMPTION_SENSITIVITY, LACK_OF_FOOD_MORALE_PENALTY, MAX_MORALE
 from empire import Empire, EmptyEmpire
 from data import ExpendableCityResources, Population, SocietalResources
 from building import Building
@@ -17,11 +17,10 @@ from job_requirements import JobRequirements
 from utils import new_value_given_morale
 
 class City(GameObject):
-    def __init__(self, capital=False, size: int = 5, morale: float = 50.0):
+    def __init__(self, size: int = 5, morale: float = 50.0):
         self.resources: ExpendableCityResources = ExpendableCityResources()
         self.societal_resources: SocietalResources = SocietalResources()
         self._defense = 100
-        self.capital = capital
         self._allegiance: Optional[Empire] = None # start off with no allegiance
         self._size = size
         self._morale = morale
@@ -31,7 +30,10 @@ class City(GameObject):
 
         # {`ticks left until finished`: effect}
         self._effect_with_ticks_left: list[EffectWithTicksleft] = []
+        self._armies = []
 
+    def is_capital(self) -> bool:
+        return self.allegiance.capital is self
 
     @property
     def allegiance(self):
@@ -72,12 +74,6 @@ class City(GameObject):
 
     def declare_independence(self):
         self._allegiance = None
-
-    def remove_as_capital(self):
-        self.capital = False
-
-    def set_as_capital(self):
-        self.capital = True
 
     def _remaining_space(self) -> int:
         total_occupied_space: int = 0
@@ -123,7 +119,7 @@ class City(GameObject):
 
     @morale.setter
     def morale(self, new_morale: int):
-        assert 0 <= new_morale <= 100
+        assert 0 <= new_morale <= MAX_MORALE
         self._morale = new_morale
 
     def change_resources(self, delta_city_resources: ExpendableCityResources):
@@ -156,29 +152,28 @@ class City(GameObject):
         if self.resources.wealth <= 0:
             self.resources.wealth = 0
     # todo: implement this methods
-    def _apply_effects(self, effects: Effect, ticks_elapsed=1):
+    def _apply_effect(self, effect: Effect, ticks_elapsed=1):
+        
+        
+        if effect.capital_effect and not self.is_capital():  # do not apply effect if not capital city
+            return
         
         # affect material resources. The rates given by the effects object are the baseline rate when morale=50
-        # self.resources.food += new_production_rate_given_morale(effects.material_resources_per_tick.food, self.morale)
-        # self.resources.timber += new_production_rate_given_morale(effects.material_resources_per_tick.timber, self.morale)
-        # self.resources.metal += new_production_rate_given_morale(effects.material_resources_per_tick.metal, self.morale)
-        # self.resources.wealth += new_production_rate_given_morale(effects.material_resources_per_tick.wealth, self.morale)
-
         self.change_resources(
             ExpendableCityResources(
-                food=new_value_given_morale(effects.material_resources_per_tick.food, self.morale),
-                timber=new_value_given_morale(effects.material_resources_per_tick.timber, self.morale),
-                metal=new_value_given_morale(effects.material_resources_per_tick.metal, self.morale),
-                wealth=new_value_given_morale(effects.material_resources_per_tick.wealth, self.morale)
+                food=new_value_given_morale(effect.material_resources_per_tick.food, self.morale),
+                timber=new_value_given_morale(effect.material_resources_per_tick.timber, self.morale),
+                metal=new_value_given_morale(effect.material_resources_per_tick.metal, self.morale),
+                wealth=new_value_given_morale(effect.material_resources_per_tick.wealth, self.morale)
             )
         )
-        self._morale += effects.morale_per_tick
+        self._morale += effect.morale_per_tick
 
     def _apply_all_effects(self):
         for effect_with_ticks_left in (self._effect_with_ticks_left):
             if not effect_with_ticks_left.effect.is_active():  # skip inactive effects
                 continue
-            self._apply_effects(effect_with_ticks_left.effect)
+            self._apply_effect(effect_with_ticks_left.effect)
             effect_with_ticks_left.progress()
             if effect_with_ticks_left.is_finished():
                 self._effect_with_ticks_left.remove(effect_with_ticks_left)
@@ -189,6 +184,11 @@ class City(GameObject):
         def check_requirements(job: Job) -> bool:
             """Returns True if requirements are satisfied. False otherwise"""
             requirements: JobRequirements = job.result.creation_job_requirements
+
+            units_contingent_on =  requirements.contingent_on
+            for unit_ in units_contingent_on:
+                if not unit_.is_active(): # a single inactive unit means job can't start
+                    return False
 
             food_excess = self.resources.food - requirements.food(level=1)
             timber_excess = self.resources.timber - requirements.timber(level=1)

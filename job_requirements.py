@@ -3,15 +3,19 @@ from __future__ import annotations
 from abc import abstractmethod
 from dataclasses import dataclass
 from math import ceil
+from typing import TYPE_CHECKING
 from data import ExpendableCityResources
 from gameobject import GameObject
+
+if TYPE_CHECKING:
+    from unit import Unit
 
 @dataclass
 class JobRequirements(GameObject):
 
     knowledge_level1: int = 0
     city_resources_level1: ExpendableCityResources = ExpendableCityResources.empty_resources()
-
+    contingent_on: list[Unit] = []  # units (likely buildings) that need to be active
     exponent: float = 1.05
 
     def city_resources(self, level: int) -> ExpendableCityResources:

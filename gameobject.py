@@ -1,2 +1,3 @@
 class GameObject:
-    pass
+    def serialize(self):
+        pass

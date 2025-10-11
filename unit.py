@@ -1,17 +1,21 @@
 from __future__ import annotations
 from typing import Optional
+from constants import DESTRUCTION_WEALTH_COST_PER_UNIT_SIZE
+from data import ExpendableCityResources
 from effects import Effect
 
 from gameobject import GameObject
-from job_requirements import JobRequirements
+from job_requirements import HasJobRequirementsMixin, JobRequirements
 
-class Unit(GameObject):
-    def __init__(self,  name: str, size: int = 1, effects: Effect = Effect):
-        self.name = name
-        self._size = size
-        self._level = 1
+class Unit(GameObject, HasJobRequirementsMixin):
+    def __init__(self,  name: str, size: int = 1, effects: Effect = Effect, job_requirements: JobRequirements = JobRequirements()):
+        self.name: str = name
+        self._size: int = size
+        self._level: int = 1
         self._effects: Effect = effects
         self._active = False
+
+        self._job_requirements = job_requirements
 
     def set_active(self):
         self._active = True
@@ -35,7 +39,21 @@ class Unit(GameObject):
     def level(self) -> int:
         return self._level
     
+    @property
+    def destruction_wealth_cost(self) -> int:
+        return self.size * DESTRUCTION_WEALTH_COST_PER_UNIT_SIZE
     
+    @property
+    def creation_job_requirements(self) -> JobRequirements:
+        return self._requirements
+    
+    @property
+    def destruction_job_requirements(self) -> JobRequirements:
+        return JobRequirements(
+            city_resources_level1=ExpendableCityResources(
+                wealth=self.destruction_wealth_cost
+            )
+        )
     
     def upgrade(self):
         # todo: upgrade effects as well (soon to be implemented)

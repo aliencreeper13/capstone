@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from army import ArmyAttributes, ArmyUnit
 from building import Building
 from job_requirements import JobRequirements
 from city import City
@@ -32,7 +33,7 @@ if __name__ == "__main__":
     US = Empire(50)
     game.add_empire(US)
 
-    mequon = City(True, 10, 50.0)
+    mequon = City(10, 50.0)
     mequon.resources.wealth = 100
     cuw = Building("CUW", 2, effects=Effect(duration_in_ticks=0,
                                             material_resources_per_tick=ExpendableCityResources(
@@ -50,4 +51,21 @@ if __name__ == "__main__":
     cuw_job = Job(num_ticks=5, result=cuw, is_upgrade=False)
     mequon.add_job(cuw_job)
     print(mequon.allegiance.game)
+
+
+    professor_menuge = ArmyUnit(
+        name="Professor Menuge",
+        size=1,
+        effects=Effect(knowledge_per_tick=1000000000),
+        requirements=JobRequirements(
+            contingent_on=[cuw]
+        ),
+        allegiance=US,
+        base_attributes=ArmyAttributes(
+            hitpoints=1000000,
+            speed=100000,
+            damage_per_tick=1000000000000000000000000000000000
+        )
+    )
+
     game.begin_game()

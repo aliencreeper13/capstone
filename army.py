@@ -3,8 +3,10 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 
+
 from exceptions import AlreadyContainedException, BadAllegianceException
 from gameobject import GameObject
+
 from unit import Unit
 from constants import HALF_MORALE, MAX_MORALE
 from utils import new_value_given_morale
@@ -13,16 +15,24 @@ import random
 
 if TYPE_CHECKING:
     from empire import Empire
+    from effects import Effect
+    from job_requirements import JobRequirements
 
 @dataclass
 class ArmyAttributes(GameObject):
     hitpoints: int
     speed: int
     damage_per_tick: int
-    morale: float
+    morale: float = HALF_MORALE
 
 class ArmyUnit(Unit):
-    def __init__(self, allegiance: Empire, base_attributes: ArmyAttributes):
+    def __init__(self, name: str, size: int, effects: Effect, requirements: JobRequirements, allegiance: Empire, base_attributes: ArmyAttributes):
+        super().__init__(name=name,
+                         size=size,
+                         effects=effects,
+                         requirements=requirements
+                         )
+
         self._allegiance: Empire = allegiance
         
         self._base_attributes: ArmyAttributes = base_attributes  # when morale = HALF_MORALE, the max attributes = the base attributes
@@ -30,6 +40,8 @@ class ArmyUnit(Unit):
 
         # all army units start 
         self._current_attributes.morale = HALF_MORALE
+
+        self._morale_sensitivity = 0.01  # Default, can be tuned per unit
 
     @property
     def allegiance(self) -> Empire:
@@ -55,9 +67,17 @@ class ArmyUnit(Unit):
     
     def apply_damage(self, dmg: float):
         dmg = min(dmg, self._current_attributes.hitpoints)
+        if dmg <= 0:
+            return
+        
+        # Compute % of HP lost
+        hp_before = self._current_attributes.hitpoints
         self._current_attributes.hitpoints -= dmg
-        if self._current_attributes.hitpoints < 0:
-            self._current_attributes.hitpoints = 0
+        hp_lost_fraction = dmg / hp_before if hp_before > 0 else 0.0
+
+        # Morale drops proportionally to HP lost
+        morale_drop = hp_lost_fraction * MAX_MORALE * self._morale_sensitivity
+        self._current_attributes.morale = max(0.0, self._current_attributes.morale - morale_drop)
 
     @property
     def is_dead(self) -> bool:

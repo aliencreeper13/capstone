@@ -14,29 +14,16 @@ if TYPE_CHECKING:
 
     
 
-class Building(Unit, HasJobRequirementsMixin):
+class Building(Unit):
     def __init__(self, name: str, size: int, effects: Effect, requirements: JobRequirements = JobRequirements()):
         super().__init__(name=name,
                          size=size,
                          effects=effects,
+                         requirements=requirements
                          )
         self._city: Optional[City] = None # indicates what city it is part of
-        self._requirements: JobRequirements = requirements
+
     def set_city(self, city: City):
         self._city = city
 
-    @property
-    def destruction_wealth_cost(self) -> int:
-        return self.size * DESTRUCTION_WEALTH_COST_PER_UNIT_SIZE
     
-    @property
-    def creation_job_requirements(self) -> JobRequirements:
-        return self._requirements
-    
-    @property
-    def destruction_job_requirements(self) -> JobRequirements:
-        return JobRequirements(
-            city_resources_level1=ExpendableCityResources(
-                wealth=self.destruction_wealth_cost
-            )
-        )
