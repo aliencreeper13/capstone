@@ -15,3 +15,12 @@ class BadAllegianceException(GameException):
 
 class AlreadyContainedException(GameException):
     pass
+
+class NotEnoughWorkersException(GameException):
+    pass
+
+class BadGameNodeException(GameException):
+    pass
+
+class BadDirectionException(GameException):
+    pass

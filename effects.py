@@ -21,6 +21,9 @@ class Effect(GameObject):
 
     defense_offered: int = 0
 
+    new_people_per_tick: int = 0  # how many new people are born
+    dead_people_per_tick: int = 0 # how many people die per tick
+
     capital_effect: bool = False  # only applies when the city in question is the capital
     contingent_on: list[Unit] # effect only active if unit is active, or if set to None
 

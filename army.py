@@ -1,12 +1,13 @@
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 
 
-from exceptions import AlreadyContainedException, BadAllegianceException
+from exceptions import AlreadyContainedException, BadAllegianceException, BadDirectionException
 from gameobject import GameObject
 
+from location import Path, PathDirection, GameNode
 from unit import Unit
 from constants import HALF_MORALE, MAX_MORALE
 from utils import new_value_given_morale
@@ -42,6 +43,8 @@ class ArmyUnit(Unit):
         self._current_attributes.morale = HALF_MORALE
 
         self._morale_sensitivity = 0.01  # Default, can be tuned per unit
+
+        
 
     @property
     def allegiance(self) -> Empire:
@@ -91,6 +94,45 @@ class Army(GameObject):
         self._allegiance: Empire = allegiance
         self._army_units: list[ArmyUnit] = []
 
+        self._gamenode: Optional[GameNode] = None
+
+        self._path: Optional[Path] = None
+        self._path_position: Optional[float] = 0.0
+
+    def in_gamenode(self) -> bool:
+        return self._gamenode != None and isinstance(self._gamenode, GameNode)
+
+    def on_path(self) -> bool:
+        return self._path != None and isinstance(self._path, Path)
+
+    # the army exits a gamenode (like a city) and embarks on a connected path
+    def get_on_path(self, path: Path):
+        if self.in_gamenode():
+            self._gamenode.remove_army(self)
+            path.add_army(army=self, from_node=self._gamenode)
+            self._path = path
+            self._gamenode = None
+
+    # the army exits a path and enters into a gamenode (like a city)
+    def get_on_gamenode(self, gamenode: GameNode):
+        if self.on_path():  # this prevents the army from just teleporting. 
+                            # This method is NOT used to deploy an army to a gamenode for the first time
+            self._path.remove_army(self)
+            gamenode.add_army(self)
+            self._gamenode = gamenode
+            self._path = None
+
+
+    def move_along_path(self, path_direction: PathDirection):
+        if self.on_path():
+            if path_direction.FORWARDS:
+                self._path.move_army(army=self, delta=+self.speed)
+            elif path_direction.BACKWARDS:
+                self._path.move_army(army=self, delta=-self.speed)
+            else:
+                raise BadDirectionException()
+        
+
     def add_army_unit(self, army_unit: ArmyUnit):
         if army_unit.allegiance is not self._allegiance:
             raise BadAllegianceException()
@@ -135,10 +177,22 @@ class Army(GameObject):
             damage_per_tick=total_hitpoints,
             morale=average_morale
         )
+    
+    @property
+    def speed(self) -> int:
+        return self.current_attributes.speed
 
     @property
     def current_tick(self) -> int:
         return self._allegiance.current_tick
+    
+
+    @property
+    def size(self) -> int:
+        total_size = 0
+        for army_unit in self.army_units:
+            total_size += army_unit.size
+        return total_size
     
     def remove_dead_units(self):
         self._army_units = [u for u in self._army_units if not u.is_dead]

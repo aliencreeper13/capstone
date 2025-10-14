@@ -9,20 +9,23 @@ from building import Building
 from typing import Optional
 from queue import Queue
 
-from exceptions import RequirementsExeption
+from exceptions import NotEnoughWorkersException, RequirementsExeption
 from gameobject import GameObject
 from job import Job
 from effects import EffectWithTicksleft, Effect
 from job_requirements import JobRequirements
+from location import GameNode
 from utils import new_value_given_morale
 
-class City(GameObject):
-    def __init__(self, size: int = 5, morale: float = 50.0):
+class City(GameNode):
+    def __init__(self, coords: tuple[int, int], size: int = 5, morale: float = 50.0):
+        super().__init__(coords=coords, size=size)
         self.resources: ExpendableCityResources = ExpendableCityResources()
         self.societal_resources: SocietalResources = SocietalResources()
+        self.employed_people: int = 0 # number of people who are working
         self._defense = 100
         self._allegiance: Optional[Empire] = None # start off with no allegiance
-        self._size = size
+        # self._size = size
         self._morale = morale
 
         self._buildings: list[Building] = []
@@ -30,7 +33,6 @@ class City(GameObject):
 
         # {`ticks left until finished`: effect}
         self._effect_with_ticks_left: list[EffectWithTicksleft] = []
-        self._armies = []
 
     def is_capital(self) -> bool:
         return self.allegiance.capital is self
@@ -63,6 +65,22 @@ class City(GameObject):
     @property
     def total_population(self) -> int: 
         return self.societal_resources.population.total()
+    
+    @property
+    def employable_population(self) -> int:
+        return self.societal_resources.employable_population
+    
+    def _employ_people(self, num_people: int):
+        if (self.societal_resources.employable_population - num_people < 0):
+            raise NotEnoughWorkersException()
+        self.societal_resources.employable_population -= num_people
+        self.societal_resources.employable_population += num_people
+
+    def _lay_off_workers(self, num_people: int):
+        if (self.societal_resources.employed_population - num_people < 0):
+            raise NotEnoughWorkersException()
+        self.societal_resources.employable_population += num_people
+        self.societal_resources.employable_population -= num_people
     
     @property
     def current_tick(self):
@@ -151,6 +169,10 @@ class City(GameObject):
             self.resources.metal = 0
         if self.resources.wealth <= 0:
             self.resources.wealth = 0
+
+    def increase_population(self, new_people):
+        pass
+
     # todo: implement this methods
     def _apply_effect(self, effect: Effect, ticks_elapsed=1):
         
@@ -184,23 +206,32 @@ class City(GameObject):
         def check_requirements(job: Job) -> bool:
             """Returns True if requirements are satisfied. False otherwise"""
             requirements: JobRequirements = job.result.creation_job_requirements
+            level = 1
+            if job.is_upgrade():
+                level = job.result.level + 1
 
             units_contingent_on =  requirements.contingent_on
             for unit_ in units_contingent_on:
                 if not unit_.is_active(): # a single inactive unit means job can't start
                     return False
 
-            food_excess = self.resources.food - requirements.food(level=1)
-            timber_excess = self.resources.timber - requirements.timber(level=1)
-            wealth_excess = self.resources.wealth - requirements.wealth(level=1)
-            metal_excess = self.resources.metal - requirements.metal(level=1)
+            food_excess = self.resources.food - requirements.food(level=level)
+            timber_excess = self.resources.timber - requirements.timber(level=level)
+            wealth_excess = self.resources.wealth - requirements.wealth(level=level)
+            metal_excess = self.resources.metal - requirements.metal(level=level)
+
+            workers_excess = self.employable_population - requirements.workers_needed(level=level)
             
-            if food_excess < 0 or timber_excess < 0 or wealth_excess < 0 or metal_excess < 0:
+            if food_excess < 0 or timber_excess < 0 or wealth_excess < 0 or metal_excess < 0 or workers_excess < 0:
                 return False
             else:
                 return True
         if check_requirements(job):
-            
+            level = 1
+            if job.is_upgrade():
+                level = job.result.level + 1
+            self.expend_resources(job.result.creation_job_requirements.city_resources(level=level))
+            self._employ_people(job.result.creation_job_requirements.workers_needed(level=level)) # employ people for job
             self._running_jobs.append(job)
         else:
             raise RequirementsExeption()
@@ -221,7 +252,9 @@ class City(GameObject):
                         self._add_building(job.result)
                 print("Finished job!")
                 self._running_jobs.remove(job)
-                self.expend_resources(job.result.creation_job_requirements.city_resources(level=1)) 
+
+                self._lay_off_workers(job.result.creation_job_requirements.workers_needed(level=job.result.level))  # change this to reflect actual level
+                
                 print("Buildings:", self._buildings)
 
         # food consumption effect: The higher the population, the more food gets consumed
@@ -238,9 +271,7 @@ class City(GameObject):
             ))
 
         self._apply_all_effects()
-            
-
-            
+                
 
     
 

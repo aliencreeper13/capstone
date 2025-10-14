@@ -1,12 +1,13 @@
 
 from job_requirements import HasJobRequirementsMixin
+from unit import Unit
 
 
 class Job:
-    def __init__(self, num_ticks: int, result: HasJobRequirementsMixin, is_upgrade: bool):
+    def __init__(self, num_ticks: int, result: Unit, is_upgrade: bool):
         assert num_ticks > 0
         self._num_ticks = num_ticks
-        self._result: HasJobRequirementsMixin = result 
+        self._result: Unit = result 
         self._is_upgrade = is_upgrade
         
         self._is_destruction: bool = False
@@ -20,7 +21,7 @@ class Job:
         return self._num_ticks <= 0
     
     @property
-    def result(self) -> HasJobRequirementsMixin:
+    def result(self) -> Unit:
         return self._result
     
     @property

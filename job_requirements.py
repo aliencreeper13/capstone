@@ -15,6 +15,7 @@ class JobRequirements(GameObject):
 
     knowledge_level1: int = 0
     city_resources_level1: ExpendableCityResources = ExpendableCityResources.empty_resources()
+    workers_needed_level1: int = 0  # number of workers needed to start job
     contingent_on: list[Unit] = []  # units (likely buildings) that need to be active
     exponent: float = 1.05
 
@@ -26,6 +27,8 @@ class JobRequirements(GameObject):
             metal=ceil(self.city_resources_level1.metal * self.exponent**(level - 1))
         )
     
+    def workers_needed(self, level: int) -> int:
+        return ceil(self.workers_needed_level1 * self.exponent**(level - 1))
 
     def food(self, level: int) -> int:
         return self.city_resources(level=level).food
@@ -41,6 +44,8 @@ class JobRequirements(GameObject):
     
     def knowledge(self, level: int) -> int:
         return ceil(self.knowledge_level1 * self.exponent**(level - 1))
+    
+
     
 class HasJobRequirementsMixin:
     @property
