@@ -4,25 +4,33 @@ from math import ceil
 
 from constants import FOOD_CONSUMPTION_SENSITIVITY, LACK_OF_FOOD_MORALE_PENALTY, MAX_MORALE
 from empire import Empire, EmptyEmpire
-from data import ExpendableCityResources, Population, SocietalResources
+from data import ExpendableCityResources, Population, SocietalResources, ExpendableEmpireResources
 from building import Building
 from typing import Optional
 from queue import Queue
 
-from exceptions import NotEnoughWorkersException, RequirementsExeption
-from gameobject import GameObject
+from exceptions import NotAssignedToGameException, NotEnoughWorkersException, RequirementsExeption
+from gameobject import GameObject, client_property
 from job import Job
 from effects import EffectWithTicksleft, Effect
 from job_requirements import JobRequirements
 from location import GameNode
 from utils import new_value_given_morale
+import gameobject
 
 class City(GameNode):
     def __init__(self, coords: tuple[int, int], size: int = 5, morale: float = 50.0):
         super().__init__(coords=coords, size=size)
-        self.resources: ExpendableCityResources = ExpendableCityResources()
-        self.societal_resources: SocietalResources = SocietalResources()
-        self.employed_people: int = 0 # number of people who are working
+        self._resources: ExpendableCityResources = ExpendableCityResources()
+        self._base_resource_capacities: ExpendableCityResources = ExpendableCityResources(
+            food=100,
+            timber=100,
+            wealth=100,
+            metal=100
+        )
+
+        self._societal_resources: SocietalResources = SocietalResources()
+        self._employed_people: int = 0 # number of people who are working
         self._defense = 100
         self._allegiance: Optional[Empire] = None # start off with no allegiance
         # self._size = size
@@ -48,42 +56,61 @@ class City(GameNode):
     
     @property
     def defense(self):
-        base_defense = self._defense
+        total_defense = self._defense
         for effect_with_tick_left in self._effect_with_ticks_left:
             if not effect_with_tick_left.is_finished():
-                base_defense += effect_with_tick_left.effect.defense_offered
+                total_defense += effect_with_tick_left.effect.defense_offered
 
-        return base_defense
+        return total_defense
     
     @property
-    def knowledge(self):
+    def expendable_resource_capacities(self) -> ExpendableCityResources:
+        resource_capacities = self._base_resource_capacities
+        for effect_with_tick_left in self._effect_with_ticks_left:
+            if not effect_with_tick_left.is_finished():
+                resource_capacities.food += effect_with_tick_left.effect.expendable_city_resource_capacities_offered.food
+                resource_capacities.timber += effect_with_tick_left.effect.expendable_city_resource_capacities_offered.timber
+                resource_capacities.metal += effect_with_tick_left.effect.expendable_city_resource_capacities_offered.metal
+                resource_capacities.wealth += effect_with_tick_left.effect.expendable_city_resource_capacities_offered.wealth
+        return resource_capacities
+    
+    @client_property
+    def knowledge(self) -> Optional[int]:
+        if self.allegiance is None:
+            return None
         return self.allegiance.knowledge
+    
+    
+    
     
     def gain_knowledge(self, value): 
         self.gain_knowledge += value
 
-    @property
+    @gameobject.client_property
     def total_population(self) -> int: 
-        return self.societal_resources.population.total()
+        return self._societal_resources.population.total()
     
     @property
     def employable_population(self) -> int:
-        return self.societal_resources.employable_population
+        return self._societal_resources.employable_population
     
     def _employ_people(self, num_people: int):
-        if (self.societal_resources.employable_population - num_people < 0):
+        if (self._societal_resources.employable_population - num_people < 0):
             raise NotEnoughWorkersException()
-        self.societal_resources.employable_population -= num_people
-        self.societal_resources.employable_population += num_people
+        self._societal_resources.employable_population -= num_people
+        self._societal_resources.employable_population += num_people
 
     def _lay_off_workers(self, num_people: int):
-        if (self.societal_resources.employed_population - num_people < 0):
+        if (self._societal_resources.employed_population - num_people < 0):
             raise NotEnoughWorkersException()
-        self.societal_resources.employable_population += num_people
-        self.societal_resources.employable_population -= num_people
+        self._societal_resources.employable_population += num_people
+        self._societal_resources.employable_population -= num_people
     
-    @property
+    @gameobject.client_property
+    # @property
     def current_tick(self):
+        if self.allegiance is None:
+            return None
         return self.allegiance.game.current_tick
 
     
@@ -139,36 +166,48 @@ class City(GameNode):
     def morale(self, new_morale: int):
         assert 0 <= new_morale <= MAX_MORALE
         self._morale = new_morale
-
+    # fixme: we need to make this more efficient and less repetitive!!!!
     def change_resources(self, delta_city_resources: ExpendableCityResources):
-        self.resources.food += delta_city_resources.food
-        self.resources.timber += delta_city_resources.timber
-        self.resources.metal += delta_city_resources.metal
-        self.resources.wealth += delta_city_resources.wealth
+        self._resources.food += delta_city_resources.food
+        self._resources.timber += delta_city_resources.timber
+        self._resources.metal += delta_city_resources.metal
+        self._resources.wealth += delta_city_resources.wealth
 
-        if self.resources.food <= 0:
-            self.resources.food = 0
-        if self.resources.timber <= 0:
-            self.resources.timber = 0
-        if self.resources.metal <= 0:
-            self.resources.metal = 0
-        if self.resources.wealth <= 0:
-            self.resources.wealth = 0
+        if self._resources.food <= 0:
+            self._resources.food = 0
+        if self._resources.timber <= 0:
+            self._resources.timber = 0
+        if self._resources.metal <= 0:
+            self._resources.metal = 0
+        if self._resources.wealth <= 0:
+            self._resources.wealth = 0
 
-    def expend_resources(self, city_resources: ExpendableCityResources):
-        self.resources.food -= city_resources.food
-        self.resources.timber -= city_resources.timber
-        self.resources.metal -= city_resources.metal
-        self.resources.wealth -= city_resources.wealth
+        if self._resources.food > self.expendable_resource_capacities.food:
+            self._resources.food = self.expendable_resource_capacities.food
+        if self._resources.timber > self.expendable_resource_capacities.timber:
+            self._resources.timber = self.expendable_resource_capacities.timber
+        if self._resources.metal > self.expendable_resource_capacities.metal:
+            self._resources.metal = self.expendable_resource_capacities.metal
+        if self._resources.wealth > self.expendable_resource_capacities.wealth:
+            self._resources.wealth = self.expendable_resource_capacities.wealth
 
-        if self.resources.food <= 0:
-            self.resources.food = 0
-        if self.resources.timber <= 0:
-            self.resources.timber = 0
-        if self.resources.metal <= 0:
-            self.resources.metal = 0
-        if self.resources.wealth <= 0:
-            self.resources.wealth = 0
+    def expend_city_resources(self, city_resources: ExpendableCityResources):
+        self._resources.food -= city_resources.food
+        self._resources.timber -= city_resources.timber
+        self._resources.metal -= city_resources.metal
+        self._resources.wealth -= city_resources.wealth
+
+        if self._resources.food <= 0:
+            self._resources.food = 0
+        if self._resources.timber <= 0:
+            self._resources.timber = 0
+        if self._resources.metal <= 0:
+            self._resources.metal = 0
+        if self._resources.wealth <= 0:
+            self._resources.wealth = 0
+
+    def change_empire_resources(self, empire_resources: ExpendableEmpireResources):
+        pass
 
     def increase_population(self, new_people):
         pass
@@ -183,10 +222,10 @@ class City(GameNode):
         # affect material resources. The rates given by the effects object are the baseline rate when morale=50
         self.change_resources(
             ExpendableCityResources(
-                food=new_value_given_morale(effect.material_resources_per_tick.food, self.morale),
-                timber=new_value_given_morale(effect.material_resources_per_tick.timber, self.morale),
-                metal=new_value_given_morale(effect.material_resources_per_tick.metal, self.morale),
-                wealth=new_value_given_morale(effect.material_resources_per_tick.wealth, self.morale)
+                food=new_value_given_morale(effect.expendable_city_resources_per_tick.food, self.morale),
+                timber=new_value_given_morale(effect.expendable_city_resources_per_tick.timber, self.morale),
+                metal=new_value_given_morale(effect.expendable_city_resources_per_tick.metal, self.morale),
+                wealth=new_value_given_morale(effect.expendable_city_resources_per_tick.wealth, self.morale)
             )
         )
         self._morale += effect.morale_per_tick
@@ -215,10 +254,10 @@ class City(GameNode):
                 if not unit_.is_active(): # a single inactive unit means job can't start
                     return False
 
-            food_excess = self.resources.food - requirements.food(level=level)
-            timber_excess = self.resources.timber - requirements.timber(level=level)
-            wealth_excess = self.resources.wealth - requirements.wealth(level=level)
-            metal_excess = self.resources.metal - requirements.metal(level=level)
+            food_excess = self._resources.food - requirements.food(level=level)
+            timber_excess = self._resources.timber - requirements.timber(level=level)
+            wealth_excess = self._resources.wealth - requirements.wealth(level=level)
+            metal_excess = self._resources.metal - requirements.metal(level=level)
 
             workers_excess = self.employable_population - requirements.workers_needed(level=level)
             
@@ -230,7 +269,7 @@ class City(GameNode):
             level = 1
             if job.is_upgrade():
                 level = job.result.level + 1
-            self.expend_resources(job.result.creation_job_requirements.city_resources(level=level))
+            self.expend_city_resources(job.result.creation_job_requirements.city_resources(level=level))
             self._employ_people(job.result.creation_job_requirements.workers_needed(level=level)) # employ people for job
             self._running_jobs.append(job)
         else:
@@ -239,7 +278,7 @@ class City(GameNode):
         return
 
     def update(self):
-        print(self.resources)
+        print(self._resources)
         for job in self._running_jobs:
             # print("progressing job", job)
             job.progress()
@@ -258,10 +297,10 @@ class City(GameNode):
                 print("Buildings:", self._buildings)
 
         # food consumption effect: The higher the population, the more food gets consumed
-        if self.resources.food > 0:
+        if self._resources.food > 0:
             self.add_effect(Effect(
                 duration_in_ticks=1,
-                material_resources_per_tick=ExpendableCityResources(food=-(self.total_population * FOOD_CONSUMPTION_SENSITIVITY))
+                expendable_city_resources_per_tick=ExpendableCityResources(food=-(self.total_population * FOOD_CONSUMPTION_SENSITIVITY))
             ))
         # if there is no food left, then morale will be depleted
         else:
@@ -284,3 +323,10 @@ class EmptyCity(City):
         if not hasattr(cls, 'instance'):
             cls.instance = super(EmptyCity, cls).__new__(cls)
         return cls.instance
+    
+if __name__ == "__main__":
+    c = City((15, 24), 5, 50)
+    # print(c.__dict__)
+    c.current_tick
+    print("POOP :)")
+    print(c.to_client_json())

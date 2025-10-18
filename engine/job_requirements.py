@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from math import ceil
 from typing import TYPE_CHECKING
 from data import ExpendableCityResources
@@ -16,7 +16,8 @@ class JobRequirements(GameObject):
     knowledge_level1: int = 0
     city_resources_level1: ExpendableCityResources = ExpendableCityResources.empty_resources()
     workers_needed_level1: int = 0  # number of workers needed to start job
-    contingent_on: list[Unit] = []  # units (likely buildings) that need to be active
+    contingent_on: list[Unit] = field(default_factory=list)  # units (likely buildings) that need to be active
+    max_per_city: int = 0  # indicates the maximum number allowed in a city (most applicable to buildings)
     exponent: float = 1.05
 
     def city_resources(self, level: int) -> ExpendableCityResources:

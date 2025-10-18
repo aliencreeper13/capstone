@@ -11,19 +11,18 @@ if TYPE_CHECKING:
 
 
 class PathDirection(Enum):
-    FORWARDS = 1
+    FORWARDS =  +1
     BACKWARDS = -1
 
+# todo: generate 
 class WorldMap(GameObject):
-    pass
+    def __init__(self, size=tuple[int, int]):
+        super().__init__()
+        self._size: tuple[int, int] = size
 
+        self._nodes: list[GameNode] = []
+        self._paths: dict[tuple[GameNode, GameNode], Path] = {}
 
-class FootUnitPossessor(GameObject):
-    def __init__(self):
-        self._units = []
-
-    def add_unit(self, unit):
-        self._units.append(unit)
 
 class Path(GameObject):
     def __init__(self, game_node1: GameNode, game_node2: GameNode):

@@ -34,9 +34,9 @@ if __name__ == "__main__":
     game.add_empire(US)
 
     mequon = City(10, 50.0)
-    mequon.resources.wealth = 100
+    mequon._resources.wealth = 100
     cuw = Building("CUW", 2, effects=Effect(duration_in_ticks=0,
-                                            material_resources_per_tick=ExpendableCityResources(
+                                            expendable_city_resources_per_tick=ExpendableCityResources(
                                                 wealth=2
                                             )),
                                             requirements=JobRequirements(

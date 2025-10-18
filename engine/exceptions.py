@@ -24,3 +24,6 @@ class BadGameNodeException(GameException):
 
 class BadDirectionException(GameException):
     pass
+
+class NotAssignedToGameException(GameException):
+    pass

@@ -1,4 +1,6 @@
-from dataclasses import dataclass
+from __future__ import annotations
+
+from dataclasses import dataclass, field
 
 from data import ExpendableCityResources
 
@@ -15,17 +17,19 @@ if TYPE_CHECKING:
 class Effect(GameObject):
     duration_in_ticks: int = 0  # if duration is 0, then it's indefinite
 
-    material_resources_per_tick: ExpendableCityResources = ExpendableCityResources.empty_resources()
+    expendable_city_resources_per_tick: ExpendableCityResources = ExpendableCityResources.empty_resources()
+
     morale_per_tick: float = 0.0
     knowledge_per_tick: int = 0
 
     defense_offered: int = 0
+    expendable_city_resource_capacities_offered: ExpendableCityResources = ExpendableCityResources.empty_resources()
 
     new_people_per_tick: int = 0  # how many new people are born
     dead_people_per_tick: int = 0 # how many people die per tick
 
     capital_effect: bool = False  # only applies when the city in question is the capital
-    contingent_on: list[Unit] # effect only active if unit is active, or if set to None
+    contingent_on: list[Unit] = field(default_factory=list) # effect only active if unit is active, or if set to None
 
     @classmethod
     def empty_effects(cls):

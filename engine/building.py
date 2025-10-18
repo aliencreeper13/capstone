@@ -15,11 +15,12 @@ if TYPE_CHECKING:
     
 
 class Building(Unit):
-    def __init__(self, name: str, size: int, effects: Effect, requirements: JobRequirements = JobRequirements()):
+    def __init__(self, name: str, size: int, effects: Effect, requirements: JobRequirements = JobRequirements(), description: str=""):
         super().__init__(name=name,
                          size=size,
                          effects=effects,
-                         requirements=requirements
+                         requirements=requirements,
+                         description=description
                          )
         self._city: Optional[City] = None # indicates what city it is part of
 

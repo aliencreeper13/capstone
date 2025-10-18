@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Optional
 
 from constants import HALF_AUTONOMY
-from data import EmpireResources
+from data import ExpendableEmpireResources
 
 from effects import EffectWithTicksleft, Effect, UniversalEffect
 from exceptions import BadEffect, CapitalExclusiveException
@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 class Empire(GameObject):
     def __init__(self, autonomy: int, capital_city: City, ideology: Ideology):
         assert 0 <= autonomy <= 100
-        self.empire_resources = EmpireResources()
+        self._empire_resources = ExpendableEmpireResources()
 
         
         self._capital: City = capital_city
