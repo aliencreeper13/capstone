@@ -31,7 +31,7 @@ class Path(GameObject):
 
         self._distance = GameNode.distance(self._game_node1, self._game_node2)
 
-        self._armies_and_coords: dict[Army, int] = {}  # armies and their corresponding position on the path
+        self._armies_and_coords: dict[Army, float] = {}  # armies and their corresponding position on the path
 
     @property
     def distance(self) -> float | int:

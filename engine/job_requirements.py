@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from abc import abstractmethod
+from abc import abstractmethod, ABC
 from dataclasses import dataclass, field
 from math import ceil
 from typing import TYPE_CHECKING, Optional
@@ -37,16 +37,16 @@ class JobRequirements(GameObject):
     def workers_needed(self, level: int) -> int:
         return ceil(self.workers_needed_level1 * self.exponent**(level - 1))
 
-    def food(self, level: int) -> int:
+    def food(self, level: int) -> float:
         return self.city_resources(level=level).food
     
-    def timber(self, level: int) -> int:
+    def timber(self, level: int) -> float:
         return self.city_resources(level=level).timber
     
-    def wealth(self, level: int) -> int:
+    def wealth(self, level: int) -> float:
         return self.city_resources(level=level).wealth
     
-    def metal(self, level: int) -> int:
+    def metal(self, level: int) -> float:
         return self.city_resources(level=level).metal
     
     def knowledge(self, level: int) -> int:
@@ -54,7 +54,7 @@ class JobRequirements(GameObject):
     
 
     
-class HasJobRequirementsMixin:
+class HasJobRequirementsMixin(ABC):
     @property
     @abstractmethod
     def creation_job_requirements(self) -> JobRequirements:

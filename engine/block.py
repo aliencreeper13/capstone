@@ -1,3 +1,5 @@
+# I forgot what role this module is supposed to play lol
+
 from typing import Optional, TYPE_CHECKING
 from gameobject import GameObject
 

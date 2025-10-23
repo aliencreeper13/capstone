@@ -9,7 +9,9 @@ if TYPE_CHECKING:
     from location import WorldMap
 
 class Game(GameObject):
-    def __init__(self, worldmap: WorldMap, empires: list[Empire] = [], ):
+    def __init__(self, worldmap: WorldMap, empires=None, ):
+        if empires is None:
+            empires = []
         self._current_tick: int = 0
         self._empires: list[Empire] = empires
         for empire in self._empires:

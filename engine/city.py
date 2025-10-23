@@ -43,7 +43,7 @@ class City(GameNode):
         self._running_jobs: list[Job] = [] # represents all running jobs (construction, etc.)
 
         # {`ticks left until finished`: effect}
-        self._effect_with_ticks_left: list[EffectWithTicksleft] = []
+        self._effects_with_ticks_left: list[EffectWithTicksleft] = []
 
         self._production_army: Army = Army(allegiance=None)  # all troops created in the city are automatically placed here
         self._armies.append(self._production_army)
@@ -63,7 +63,7 @@ class City(GameNode):
     @client_property
     def defense(self):
         total_defense = self._defense
-        for effect_with_tick_left in self._effect_with_ticks_left:
+        for effect_with_tick_left in self._effects_with_ticks_left:
             if not effect_with_tick_left.is_finished():
                 total_defense += effect_with_tick_left.effect.defense_offered
 
@@ -72,7 +72,7 @@ class City(GameNode):
     @property
     def expendable_resource_capacities(self) -> ExpendableCityResources:
         resource_capacities = self._base_resource_capacities
-        for effect_with_tick_left in self._effect_with_ticks_left:
+        for effect_with_tick_left in self._effects_with_ticks_left:
             if not effect_with_tick_left.is_finished():
                 resource_capacities.food += effect_with_tick_left.effect.expendable_city_resource_capacities_offered.food
                 resource_capacities.timber += effect_with_tick_left.effect.expendable_city_resource_capacities_offered.timber
@@ -83,7 +83,7 @@ class City(GameNode):
     @client_property
     def population_limit(self):
         total_population_capacity = self._base_population_capacity
-        for effect_with_tick_left in self._effect_with_ticks_left:
+        for effect_with_tick_left in self._effects_with_ticks_left:
             if not effect_with_tick_left.is_finished():
                 total_population_capacity += effect_with_tick_left.effect.population_capacity_offered
 
@@ -98,12 +98,13 @@ class City(GameNode):
     @client_property
     def expendable_city_resource_pct_increase(self) -> ExpendableCityResources:
         factor: ExpendableCityResources = ExpendableCityResources() + 1  # this makes all the attributes 1
-        for effect_with_ticks_left in self._effect_with_ticks_left:
+        for effect_with_ticks_left in self._effects_with_ticks_left:
             if effect_with_ticks_left.is_finished():
                 continue
             effect = effect_with_ticks_left.effect
             factor *= (1 + (effect.expendable_city_resources_pct_increase / 100))
         pct_increase = (factor*100) - 1
+        return pct_increase
     
     @property
     def expendable_city_resource_factor(self) -> ExpendableCityResources:
@@ -158,12 +159,14 @@ class City(GameNode):
         # if effect has an associated ID, 
         # then remove all effects with same ID (no two effects with ID can exist simultaneously)
         if effect.effect_id is not None:
-            for effect_with_tick_left in self._effect_with_ticks_left:
+            for i, effect_with_tick_left in enumerate(self._effects_with_ticks_left):
                 if effect_with_tick_left.effect.effect_id == effect.effect_id:
-                    self._effect_with_ticks_left.remove(effect_with_tick_left.effect)  # remove this effect, it has the same ID as the one being added
-
+                    self._effects_with_ticks_left[i] = None  # remove this effect, it has the same ID as the one being added
+            # Elements that are `None` are EffectWithTicksLeft instances that were removed
+            while None in self._effects_with_ticks_left:
+                self._effects_with_ticks_left.remove(None)
         
-        self._effect_with_ticks_left.append(EffectWithTicksleft(
+        self._effects_with_ticks_left.append(EffectWithTicksleft(
             effect=effect,
             ticks_left=effect.duration_in_ticks
         ))
@@ -185,7 +188,7 @@ class City(GameNode):
         self._buildings.append(building)
         self._size -= building.size
         building.set_city(self)
-        self.add_effect(self, effect=building.effects)  # add building's effects
+        self.add_effect(self, effect=building.effect)  # add building's effect
 
     def _add_army_unit(self, army_unit: ArmyUnit):
         assert not self._production_army.has_unit(army_unit=army_unit)
@@ -193,14 +196,16 @@ class City(GameNode):
 
         self._production_army.add_army_unit(army_unit=army_unit)
 
-    def _upgrade_building(self, building: Building):
-        assert building in self._buildings
+    # unsure if we will need this anymore since `Job` objects automatically
+    # upgrade buildings (and other units) upon completion
+    # def _upgrade_building(self, building: Building):
+        # assert building in self._buildings
 
-        building.upgrade() # when the building is upgraded, the effects upgraded as well
+        # building.upgrade() # when the building is upgraded, the effects upgraded as well
         
 
     @property
-    def morale(self) -> int:
+    def morale(self) -> float:
         return self._morale
 
     @morale.setter
@@ -278,13 +283,13 @@ class City(GameNode):
         self._morale += effect.morale_per_tick
 
     def _apply_all_effects(self):
-        for effect_with_ticks_left in (self._effect_with_ticks_left):
+        for effect_with_ticks_left in (self._effects_with_ticks_left):
             if not effect_with_ticks_left.effect.is_active():  # skip inactive effects
                 continue
             self._apply_effect(effect_with_ticks_left.effect)
             effect_with_ticks_left.progress()
             if effect_with_ticks_left.is_finished():
-                self._effect_with_ticks_left.remove(effect_with_ticks_left)
+                self._effects_with_ticks_left.remove(effect_with_ticks_left)
     
     # returns the number of units of a particular subclass in city
     # for example, if you pass `Farm` (the actual class itself NOT an instance)
@@ -296,7 +301,7 @@ class City(GameNode):
         count = 0
         if issubclass(unit_class, Building):
             for building in self._buildings:
-                if issubclass(building, unit_class):
+                if issubclass(type(building), unit_class):
                     count += 1
 
         elif issubclass(unit_class, ArmyUnit):
@@ -304,7 +309,7 @@ class City(GameNode):
                 if only_allegiant_to_empire and army.allegiance is not self.allegiance:  # skip hostile units if necessary
                     continue
                 for army_unit in army.army_units:
-                    if issubclass(army_unit, unit_class) and army_unit.level >= minimum_level:
+                    if issubclass(type(army_unit), unit_class) and army_unit.level >= minimum_level:
                         count += 1
         else:
             raise ValueError(f"Bad unit_class given. Type given: {unit_class}")
@@ -317,9 +322,7 @@ class City(GameNode):
         def check_requirements(job: Job) -> bool:
             """Returns True if requirements are satisfied. False otherwise"""
             requirements: JobRequirements = job.result.creation_job_requirements
-            level = 1
-            if job.is_upgrade():
-                level = job.result.level + 1
+            level = job.level_upon_completion
 
             specific_units_contingent_on =  requirements.specific_units_contingent_on
             for unit_ in specific_units_contingent_on:
@@ -347,7 +350,7 @@ class City(GameNode):
                 return True
         if check_requirements(job):
             level = 1
-            if job.is_upgrade():
+            if job.is_upgrade:
                 level = job.result.level + 1
             self.expend_city_resources(job.result.creation_job_requirements.city_resources(level=level))
             self._employ_people(job.result.creation_job_requirements.workers_needed(level=level)) # employ people for job
@@ -363,14 +366,17 @@ class City(GameNode):
             # print("progressing job", job)
             job.progress()
             if job.is_finished():
-                
-                if isinstance(job.result, Building):
-                    if job._is_upgrade:
-                        self._upgrade_building(job.result)
+                assert isinstance(job.result, Unit)
+                job_result = job.result
+                if isinstance(job_result, Building):
+                    if job.is_upgrade:
+                        pass
+                        # self._upgrade_building(job.result) # This line is no longer needed
                     else:
-                        self._add_building(job.result)
-                elif isinstance(job.result, ArmyUnit):
-                    self._add_army_unit(job.result)
+                        assert job_result is not None
+                        self._add_building(job_result)
+                elif isinstance(job_result, ArmyUnit):
+                    self._add_army_unit(job_result)
 
                 print("Finished job!")
                 self._running_jobs.remove(job)

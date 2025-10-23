@@ -41,7 +41,7 @@ class Effect(GameObject):
     @classmethod
     def empty_effects(cls):
         return cls(duration_in_ticks=0,
-                       material_resources_per_tick=ExpendableCityResources.empty_resources(),
+                       expendable_city_resources_per_tick=ExpendableCityResources.empty_resources(),
                        )
     
     def is_indefinite(self) -> bool:
@@ -76,9 +76,7 @@ class EffectWithTicksleft:
         if self.effect.is_indefinite():
             return False
         return self.ticks_left <= 0
-    
-    
-    
+
     
 
     

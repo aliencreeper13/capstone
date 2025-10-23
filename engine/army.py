@@ -21,24 +21,20 @@ if TYPE_CHECKING:
 
 @dataclass
 class ArmyAttributes(GameObject):
-    hitpoints: int
-    speed: int
-    damage_per_tick: int
+    hitpoints: float
+    speed: float
+    damage_per_tick: float
     morale: float = HALF_MORALE
 
 class ArmyUnit(Unit):
-    def __init__(self, name: str, size: int, effects: Effect, requirements: JobRequirements, base_attributes: ArmyAttributes, description: str=""):
-        super().__init__(name=name,
-                         size=size,
-                         effects=effects,
-                         requirements=requirements,
-                         description=description
-                         )
+    base_attributes: ArmyAttributes  # class attributes
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
         self._allegiance: Optional[Empire] = None
         
-        self._base_attributes: ArmyAttributes = base_attributes  # when morale = HALF_MORALE, the max attributes = the base attributes
-        self._current_attributes: ArmyAttributes = base_attributes
+        self._base_attributes: ArmyAttributes = self.base_attributes  # when morale = HALF_MORALE, the max attributes = the base attributes
+        self._current_attributes: ArmyAttributes = self.base_attributes
 
         # all army units start 
         self._current_attributes.morale = HALF_MORALE
@@ -102,10 +98,10 @@ class Army(GameObject):
         self._path_position: Optional[float] = 0.0
 
     def in_gamenode(self) -> bool:
-        return self._gamenode != None and isinstance(self._gamenode, GameNode)
+        return self._gamenode is not None and isinstance(self._gamenode, GameNode)
 
     def on_path(self) -> bool:
-        return self._path != None and isinstance(self._path, Path)
+        return self._path is not None and isinstance(self._path, Path)
 
     # the army exits a gamenode (like a city) and embarks on a connected path
     def get_on_path(self, path: Path):
@@ -160,8 +156,8 @@ class Army(GameObject):
         slowest_speed = float('inf')
         for army_unit in self._army_units:
             total_hitpoints += army_unit.current_attributes.hitpoints
-            total_damage_per_tick + army_unit.current_attributes.damage_per_tick 
-            total_morale + army_unit.current_attributes.morale
+            total_damage_per_tick += army_unit.current_attributes.damage_per_tick
+            total_morale += army_unit.current_attributes.morale
 
             if army_unit.current_attributes.speed < slowest_speed:
                 slowest_speed = army_unit.current_attributes.speed
@@ -254,7 +250,7 @@ def _distribute_damage(target_army: Army, total_damage: float):
         return
 
     # Apply proportionate damage
-    for unit, weight in zip(target_army._army_units, weights):
+    for unit, weight in zip(target_army.army_units, weights):
         portion = weight / total_weight
         dmg = total_damage * portion
         unit.apply_damage(dmg)

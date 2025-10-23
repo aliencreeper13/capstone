@@ -8,7 +8,8 @@ from data import ExpendableCityResources, ExpendableEmpireResources
 from effects import Effect
 from game import Game
 from empire import Empire
-from job import Job
+from job import Job, CreationJob
+
 
 # This is a sample Python script.
 
@@ -48,7 +49,7 @@ if __name__ == "__main__":
     US.add_city(mequon)
     print("Mequon Allegiance after US", mequon.allegiance)
     print(mequon.knowledge)
-    cuw_job = Job(num_ticks=5, result=cuw, is_upgrade=False)
+    cuw_job = CreationJob(num_ticks=5, result=cuw)
     mequon.add_job(cuw_job)
     print(mequon.allegiance.game)
 
