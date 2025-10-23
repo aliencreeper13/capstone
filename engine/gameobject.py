@@ -1,22 +1,29 @@
+from __future__ import annotations
+
 import json
-from typing import Any
+from typing import Any, Optional, TYPE_CHECKING
+if TYPE_CHECKING:
+    from engine.empire import Empire
 
 class client_property(property):
     def __init__(self, fget = ..., fset = ..., fdel = ..., doc = ...):
         super().__init__(fget, fset, fdel, doc)
 
-def client(prop: property):
-    """Marks a property as client-exposed."""
-    prop._is_client_exposed = True
-    return prop
+class public_client_property(client_property):
+    """Properties accessible by every player in the game"""
+    pass
+
+class private_client_property(client_property):
+    """Properties accessible only to authorized players (e.g. city data only accessible to city owner)"""
+    pass
 
 class GameObject:
-    def to_client_dict(self) -> dict[str, Any]:
+    def to_client_dict(self, viewer: Optional[Empire]) -> dict[str, Any]:
         data = {}
         # Go through all attributes on the class
         for attr_name in dir(self):
             attr = getattr(type(self), attr_name, None)
-            if isinstance(attr, client_property): # and getattr(attr, "_is_client_exposed", False):
+            if isinstance(attr, client_property):
                 value = getattr(self, attr_name)
 
                 # Recursively serialize GameObjects

@@ -4,7 +4,7 @@ from army import ArmyAttributes, ArmyUnit
 from building import Building
 from job_requirements import JobRequirements
 from city import City
-from data import ExpendableCityResources
+from data import ExpendableCityResources, ExpendableEmpireResources
 from effects import Effect
 from game import Game
 from empire import Empire
@@ -56,9 +56,13 @@ if __name__ == "__main__":
     professor_menuge = ArmyUnit(
         name="Professor Menuge",
         size=1,
-        effects=Effect(knowledge_per_tick=1000000000),
+        effects=Effect(
+            expendable_empire_resources_per_tick=ExpendableEmpireResources(
+                knowledge=1000000000000
+            )
+        ),
         requirements=JobRequirements(
-            contingent_on=[cuw]
+            specific_units_contingent_on=[cuw]
         ),
         allegiance=US,
         base_attributes=ArmyAttributes(

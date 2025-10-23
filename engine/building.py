@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
     from city import City
+    from empire import Empire
 
 
     
@@ -24,7 +25,12 @@ class Building(Unit):
                          )
         self._city: Optional[City] = None # indicates what city it is part of
 
-    def set_city(self, city: City):
-        self._city = city
+    @property
+    def allegiance(self) -> Empire | None:
+        if self._city is None:
+            return None
+        return self._city.allegiance
+
+    
 
     

@@ -1,11 +1,15 @@
 from __future__ import annotations
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 from constants import DESTRUCTION_WEALTH_COST_PER_UNIT_SIZE
 from data import ExpendableCityResources
 from effects import Effect
 
 from gameobject import GameObject
 from job_requirements import HasJobRequirementsMixin, JobRequirements
+
+
+if TYPE_CHECKING:
+    from city import City
 
 class Unit(GameObject, HasJobRequirementsMixin):
     def __init__(self,  name: str, size: int = 1, effects: Effect = Effect, job_requirements: JobRequirements = JobRequirements(), description: str = ""):
@@ -28,6 +32,11 @@ class Unit(GameObject, HasJobRequirementsMixin):
 
     def is_active(self):
         return self._active
+    
+    def set_city(self, city: City):
+        self._city = city
+    
+    
 
     @property
     def size(self) -> int:

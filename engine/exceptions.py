@@ -27,3 +27,4 @@ class BadDirectionException(GameException):
 
 class NotAssignedToGameException(GameException):
     pass
+

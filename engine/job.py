@@ -4,11 +4,11 @@ from unit import Unit
 
 
 class Job:
-    def __init__(self, num_ticks: int, result: Unit, is_upgrade: bool):
+    def __init__(self, num_ticks: int, result: Unit):
         assert num_ticks > 0
         self._num_ticks = num_ticks
         self._result: Unit = result 
-        self._is_upgrade = is_upgrade
+        self._is_upgrade = False
         
         self._is_destruction: bool = False
     
@@ -27,6 +27,10 @@ class Job:
     @property
     def is_upgrade(self) -> bool:
         return self._is_upgrade
+    
+class UpgradeJob(Job):
+    def __init__(self, num_ticks, result):
+        super().__init__(num_ticks, result)
     
 
 class DestructionJob(Job):

@@ -27,14 +27,15 @@ class ArmyAttributes(GameObject):
     morale: float = HALF_MORALE
 
 class ArmyUnit(Unit):
-    def __init__(self, name: str, size: int, effects: Effect, requirements: JobRequirements, allegiance: Empire, base_attributes: ArmyAttributes):
+    def __init__(self, name: str, size: int, effects: Effect, requirements: JobRequirements, base_attributes: ArmyAttributes, description: str=""):
         super().__init__(name=name,
                          size=size,
                          effects=effects,
-                         requirements=requirements
+                         requirements=requirements,
+                         description=description
                          )
 
-        self._allegiance: Empire = allegiance
+        self._allegiance: Optional[Empire] = None
         
         self._base_attributes: ArmyAttributes = base_attributes  # when morale = HALF_MORALE, the max attributes = the base attributes
         self._current_attributes: ArmyAttributes = base_attributes
@@ -44,10 +45,11 @@ class ArmyUnit(Unit):
 
         self._morale_sensitivity = 0.01  # Default, can be tuned per unit
 
-        
+    def set_allegiance(self, empire: Empire):
+        self._allegiance = empire
 
     @property
-    def allegiance(self) -> Empire:
+    def allegiance(self) -> Empire | None:
         return self._allegiance
 
     @property
@@ -89,9 +91,9 @@ class ArmyUnit(Unit):
     
     
 class Army(GameObject):
-    def __init__(self, allegiance: Empire):
+    def __init__(self, allegiance: Optional[Empire]):
         super().__init__()
-        self._allegiance: Empire = allegiance
+        self._allegiance: Optional[Empire] = allegiance
         self._army_units: list[ArmyUnit] = []
 
         self._gamenode: Optional[GameNode] = None
@@ -204,6 +206,16 @@ class Army(GameObject):
     @property
     def num_units(self) -> int:
         return len(self._army_units)
+    
+    @property
+    def allegiance(self) -> Optional[Empire]:
+        return self._allegiance
+    
+    def set_allegiance(self, empire: Empire):
+        self._allegiance = empire
+    
+    def has_unit(self, army_unit: ArmyUnit):
+        return army_unit in self._army_units
     
     
 def battle_next_tick(army1: Army, army2: Army):
