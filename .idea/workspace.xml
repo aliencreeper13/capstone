@@ -1,24 +1,61 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
   <component name="ChangeListManager">
-    <list default="true" id="4beeb406-c853-44ad-927d-930cbda23c93" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/.idea/Empire.iml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/profiles_settings.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+    <list default="true" id="4beeb406-c853-44ad-927d-930cbda23c93" name="Changes" comment="Reworked jobs. Made two types of Jobs: Creation jobs and upgrade Jobs. Creation Jobs accept a Unit *type* (not an instance of Unit). Upon completion of a creation job, a unit is instantiated. Upgrade jobs accept an existing unit instance. Upon completion of the job, the unit is automatically upgraded to the next level. Made unit attributes into *class* attributes to make it so that jobs can easily instantiate units without passing in arguments. Changed classes in unit_classes/ to reflect these changes">
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/engine/army.py" beforeDir="false" afterPath="$PROJECT_DIR$/engine/army.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/engine/city.py" beforeDir="false" afterPath="$PROJECT_DIR$/engine/city.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/engine/data.py" beforeDir="false" afterPath="$PROJECT_DIR$/engine/data.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/engine/effects.py" beforeDir="false" afterPath="$PROJECT_DIR$/engine/effects.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/engine/empire.py" beforeDir="false" afterPath="$PROJECT_DIR$/engine/empire.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/engine/exceptions.py" beforeDir="false" afterPath="$PROJECT_DIR$/engine/exceptions.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/engine/gameobject.py" beforeDir="false" afterPath="$PROJECT_DIR$/engine/gameobject.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/engine/ideology.py" beforeDir="false" afterPath="$PROJECT_DIR$/engine/ideology.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/engine/job_requirements.py" beforeDir="false" afterPath="$PROJECT_DIR$/engine/job_requirements.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/engine/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/engine/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/engine/unit.py" beforeDir="false" afterPath="$PROJECT_DIR$/engine/unit.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/engine/utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/engine/game_utils.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/App.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/App.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/cityviewer.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/simpleCityViewer.tsx" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="TypeScript JSX File" />
+        <option value="Python Script" />
+      </list>
+    </option>
+  </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
-  <component name="ProjectColorInfo"><![CDATA[{
-  "associatedIndex": 7
-}]]></component>
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;aliencreeper13&quot;
+  }
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/aliencreeper13/capstone.git&quot;,
+    &quot;accountId&quot;: &quot;38228142-8d34-4659-8296-fe6c450189fb&quot;
+  }
+}</component>
+  <component name="ProblemsViewState">
+    <option name="selectedTabId" value="CurrentFile" />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 7
+}</component>
   <component name="ProjectId" id="32iuPeE59ZM5MeQ4wd1KnJpcllD" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
@@ -27,15 +64,113 @@
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
     "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "Python.abc_test.executor": "Run",
+    "Python.main.executor": "Run",
+    "Python.test_server.executor": "Run",
     "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
     "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "master"
+    "git-widget-placeholder": "master",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_interpreter_path": "C:/Users/F00564635/AppData/Roaming/JetBrains/PyCharm2025.2/node/versions/22.21.0/node",
+    "nodejs_package_manager_path": "npm",
+    "run.code.analysis.last.selected.profile": "aDefault",
+    "settings.editor.selected.configurable": "editor.preferences.inline.completion",
+    "ts.external.directory.path": "C:\\Users\\F00564635\\PycharmProjects\\capstone\\frontend\\node_modules\\typescript\\lib",
+    "vue.rearranger.settings.migration": "true"
   }
 }]]></component>
+  <component name="RecentsManager">
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="C:\Users\F00564635\PycharmProjects\capstone\engine\tests\private" />
+    </key>
+  </component>
+  <component name="RunManager" selected="Python.main">
+    <configuration name="abc_test" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="Empire" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/engine/tests" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="C:\Users\F00564635\PycharmProjects\capstone\engine\tests\private\abc_test.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="main" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="Empire" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/engine" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/engine/main.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="test_server" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="Empire" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/engine/tests" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/engine/tests/test_server.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Python.main" />
+        <item itemvalue="Python.test_server" />
+        <item itemvalue="Python.abc_test" />
+      </list>
+    </recent_temporary>
+  </component>
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-python-sdk-d9fa9deec7cb-d902c0275401-com.jetbrains.pycharm.community.sharedIndexes.bundled-PC-252.23892.515" />
+        <option value="bundled-js-predefined-d6986cc7102b-3aa1da707db6-JavaScript-PY-252.26830.99" />
+        <option value="bundled-python-sdk-164cda30dcd9-0af03a5fa574-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-252.26830.99" />
       </set>
     </attachedChunks>
   </component>
@@ -46,8 +181,38 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1757915690659</updated>
+      <workItem from="1761252608566" duration="8430000" />
+      <workItem from="1761261123060" duration="73000" />
+      <workItem from="1761598461268" duration="7437000" />
     </task>
+    <task id="LOCAL-00001" summary="Reworked jobs. Made two types of Jobs: Creation jobs and upgrade Jobs. Creation Jobs accept a Unit *type* (not an instance of Unit). Upon completion of a creation job, a unit is instantiated. Upgrade jobs accept an existing unit instance. Upon completion of the job, the unit is automatically upgraded to the next level. Made unit attributes into *class* attributes to make it so that jobs can easily instantiate units without passing in arguments. Changed classes in unit_classes/ to reflect these changes">
+      <option name="closed" value="true" />
+      <created>1761261078449</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1761261078449</updated>
+    </task>
+    <option name="localTasksCounter" value="2" />
     <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="Reworked jobs. Made two types of Jobs: Creation jobs and upgrade Jobs. Creation Jobs accept a Unit *type* (not an instance of Unit). Upon completion of a creation job, a unit is instantiated. Upgrade jobs accept an existing unit instance. Upon completion of the job, the unit is automatically upgraded to the next level. Made unit attributes into *class* attributes to make it so that jobs can easily instantiate units without passing in arguments. Changed classes in unit_classes/ to reflect these changes" />
+    <option name="LAST_COMMIT_MESSAGE" value="Reworked jobs. Made two types of Jobs: Creation jobs and upgrade Jobs. Creation Jobs accept a Unit *type* (not an instance of Unit). Upon completion of a creation job, a unit is instantiated. Upgrade jobs accept an existing unit instance. Upon completion of the job, the unit is automatically upgraded to the next level. Made unit attributes into *class* attributes to make it so that jobs can easily instantiate units without passing in arguments. Changed classes in unit_classes/ to reflect these changes" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
@@ -57,7 +222,17 @@
           <line>8</line>
           <option name="timeStamp" value="1" />
         </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/engine/block.py</url>
+          <line>2</line>
+          <option name="timeStamp" value="9" />
+        </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>
+  </component>
+  <component name="com.intellij.coverage.CoverageDataManagerImpl">
+    <SUITE FILE_PATH="coverage/capstone$abc_test.coverage" NAME="abc_test Coverage Results" MODIFIED="1761255234598" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/engine/tests" />
+    <SUITE FILE_PATH="coverage/capstone$test_server.coverage" NAME="test_server Coverage Results" MODIFIED="1761600677673" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/engine/tests" />
+    <SUITE FILE_PATH="coverage/capstone$main.coverage" NAME="main Coverage Results" MODIFIED="1761605931432" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/engine" />
   </component>
 </project>

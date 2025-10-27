@@ -25,15 +25,8 @@ class Unit(GameObject, HasJobRequirementsMixin, ABC):
     job_requirements: JobRequirements  # job requirements for *creation*
     description: str
     def __init__(self, *args, **kwargs):
-        self._name: str = self.name
-        self._size: int = self.size
         self._level: int = 1
-        self._effects: Effect = self.effect
         self._active = False
-
-        self._job_requirements = self.job_requirements
-
-        self._description: str = self.description
 
         self._city: Optional[City] = None
 
@@ -56,7 +49,7 @@ class Unit(GameObject, HasJobRequirementsMixin, ABC):
     
     @property
     def creation_job_requirements(self) -> JobRequirements:
-        return self._job_requirements
+        return self.job_requirements
 
     def destruction_job_requirements(self) -> JobRequirements:
         return JobRequirements(

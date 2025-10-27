@@ -17,17 +17,17 @@ if TYPE_CHECKING:
 class Effect(GameObject):
     duration_in_ticks: int = 0  # if duration is 0, then it's indefinite
 
-    expendable_city_resources_per_tick: ExpendableCityResources = ExpendableCityResources.empty_resources()
-    expendable_empire_resources_per_tick: ExpendableEmpireResources = ExpendableEmpireResources()
+    expendable_city_resources_per_tick: ExpendableCityResources = field(default_factory=ExpendableCityResources)
+    expendable_empire_resources_per_tick: ExpendableEmpireResources = field(default_factory=ExpendableCityResources)
 
-    expendable_city_resources_pct_increase: ExpendableCityResources = ExpendableCityResources()
-    expendable_empire_resources_pct_increase: ExpendableEmpireResources = ExpendableEmpireResources()
+    expendable_city_resources_pct_increase: ExpendableCityResources = field(default_factory=ExpendableCityResources)
+    expendable_empire_resources_pct_increase: ExpendableEmpireResources = field(default_factory=ExpendableCityResources)
 
 
     morale_per_tick: float = 0.0
 
     defense_offered: int = 0
-    expendable_city_resource_capacities_offered: ExpendableCityResources = ExpendableCityResources.empty_resources()
+    expendable_city_resource_capacities_offered: ExpendableCityResources = field(default_factory=ExpendableCityResources)
     population_capacity_offered: int = 0
 
     new_people_per_tick: int = 0  # how many new people are born

@@ -10,17 +10,20 @@ from typing import Optional
 from queue import Queue
 
 from engine.army import Army, ArmyUnit
-from engine.unit import Unit
+from engine.engine_utils import soft_isinstance
+from engine.gameobject import private_client_property, public_client_property
+from unit import Unit
+# import engine
 from exceptions import NotAssignedToGameException, NotEnoughWorkersException, RequirementsExeption
-from gameobject import GameObject, client_property
+from gameobject import GameObject, client_property, HasAllegianceMixin
 from job import Job
 from effects import EffectWithTicksleft, Effect
 from job_requirements import JobRequirements
 from location import GameNode
-from utils import new_value_given_morale
+from game_utils import new_value_given_morale
 import gameobject
 
-class City(GameNode):
+class City(GameNode, HasAllegianceMixin):
     def __init__(self, coords: tuple[int, int], size: int = 5, morale: float = 50.0):
         super().__init__(coords=coords, size=size)
         self._resources: ExpendableCityResources = ExpendableCityResources()
@@ -38,6 +41,7 @@ class City(GameNode):
         self._allegiance: Optional[Empire] = None # start off with no allegiance
         # self._size = size
         self._morale = morale
+        self._gain_knowledge = 0
 
         self._buildings: list[Building] = []
         self._running_jobs: list[Job] = [] # represents all running jobs (construction, etc.)
@@ -51,16 +55,16 @@ class City(GameNode):
     def is_capital(self) -> bool:
         return self.allegiance.capital is self
 
-    @client_property
+    @public_client_property
     def allegiance(self):
         return self._allegiance
     
     # the autonomy of a city is the autonomy permitted by the empire
-    @client_property
+    @private_client_property
     def autonomy(self):
         return self.allegiance.autonomy
     
-    @client_property
+    @private_client_property
     def defense(self):
         total_defense = self._defense
         for effect_with_tick_left in self._effects_with_ticks_left:
@@ -69,7 +73,7 @@ class City(GameNode):
 
         return total_defense
     
-    @property
+    @private_client_property
     def expendable_resource_capacities(self) -> ExpendableCityResources:
         resource_capacities = self._base_resource_capacities
         for effect_with_tick_left in self._effects_with_ticks_left:
@@ -80,7 +84,7 @@ class City(GameNode):
                 resource_capacities.wealth += effect_with_tick_left.effect.expendable_city_resource_capacities_offered.wealth
         return resource_capacities
     
-    @client_property
+    @private_client_property
     def population_limit(self):
         total_population_capacity = self._base_population_capacity
         for effect_with_tick_left in self._effects_with_ticks_left:
@@ -89,35 +93,35 @@ class City(GameNode):
 
         return total_population_capacity
     
-    @client_property
+    @private_client_property
     def knowledge(self) -> Optional[int]:
         if self.allegiance is None:
             return None
         return self.allegiance.knowledge
     
-    @client_property
+    @private_client_property
     def expendable_city_resource_pct_increase(self) -> ExpendableCityResources:
         factor: ExpendableCityResources = ExpendableCityResources() + 1  # this makes all the attributes 1
         for effect_with_ticks_left in self._effects_with_ticks_left:
             if effect_with_ticks_left.is_finished():
                 continue
             effect = effect_with_ticks_left.effect
-            factor *= (1 + (effect.expendable_city_resources_pct_increase / 100))
+            factor *= ((effect.expendable_city_resources_pct_increase / 100) + 1)
         pct_increase = (factor*100) - 1
         return pct_increase
     
-    @property
+    @private_client_property
     def expendable_city_resource_factor(self) -> ExpendableCityResources:
-        return 1 + self.expendable_city_resource_pct_increase/100
+        return self.expendable_city_resource_pct_increase/100  + 1
     
     def gain_knowledge(self, value): 
-        self.gain_knowledge += value
+        self._gain_knowledge += value
 
-    @client_property
+    @private_client_property
     def total_population(self) -> int: 
         return self._societal_resources.population.total()
     
-    @client_property
+    @private_client_property
     def employable_population(self) -> int:
         return self._societal_resources.employable_population
     
@@ -133,7 +137,7 @@ class City(GameNode):
         self._societal_resources.employable_population += num_people
         self._societal_resources.employable_population -= num_people
     
-    @client_property
+    @public_client_property
     # @property
     def current_tick(self):
         if self.allegiance is None:
@@ -188,7 +192,7 @@ class City(GameNode):
         self._buildings.append(building)
         self._size -= building.size
         building.set_city(self)
-        self.add_effect(self, effect=building.effect)  # add building's effect
+        self.add_effect(effect=building.effect)  # add building's effect
 
     def _add_army_unit(self, army_unit: ArmyUnit):
         assert not self._production_army.has_unit(army_unit=army_unit)
@@ -204,7 +208,7 @@ class City(GameNode):
         # building.upgrade() # when the building is upgraded, the effects upgraded as well
         
 
-    @property
+    @private_client_property
     def morale(self) -> float:
         return self._morale
 
@@ -321,7 +325,7 @@ class City(GameNode):
         # todo: make sure that the appropriate resources are present
         def check_requirements(job: Job) -> bool:
             """Returns True if requirements are satisfied. False otherwise"""
-            requirements: JobRequirements = job.result.creation_job_requirements
+            requirements: JobRequirements = job.requirements
             level = job.level_upon_completion
 
             specific_units_contingent_on =  requirements.specific_units_contingent_on
@@ -352,8 +356,8 @@ class City(GameNode):
             level = 1
             if job.is_upgrade:
                 level = job.result.level + 1
-            self.expend_city_resources(job.result.creation_job_requirements.city_resources(level=level))
-            self._employ_people(job.result.creation_job_requirements.workers_needed(level=level)) # employ people for job
+            self.expend_city_resources(job.requirements.city_resources(level=level))
+            self._employ_people(job.requirements.workers_needed(level=level)) # employ people for job
             self._running_jobs.append(job)
         else:
             raise RequirementsExeption()
@@ -366,8 +370,20 @@ class City(GameNode):
             # print("progressing job", job)
             job.progress()
             if job.is_finished():
-                assert isinstance(job.result, Unit)
+
+
+                # fixme: THIS STUPID MESS!
+                # print("_________________")
+                # import sys
+                # print([name for name in sys.modules if name.endswith('unit')])
+                # print("CRAP")
                 job_result = job.result
+                # print(job_result.__class__.__mro__[-5])
+                # print(Unit)
+                # print(id(job_result.__class__.__mro__[-5]))  # ID of Unit in hierarchy
+                # print(id(Unit))
+                assert soft_isinstance(job_result, Unit)  # known issue: inconsistent paths for `Unit` may cause issues if `isinstance` if used
+                # print("Result of job :)", job_result)
                 if isinstance(job_result, Building):
                     if job.is_upgrade:
                         pass
@@ -387,14 +403,14 @@ class City(GameNode):
 
         # food consumption effect: The higher the population, the more food gets consumed
         if self._resources.food > 0:
-            self.add_effect(Effect(
+            self.add_effect(effect=Effect(
                 duration_in_ticks=1,
                 expendable_city_resources_per_tick=ExpendableCityResources(food=-(self.total_population * FOOD_CONSUMPTION_SENSITIVITY)),
                 effect_id=AUTOMATIC_FOOD_CONSUMPTION_EFFECT_ID
             ))
         # if there is no food left, then morale will be depleted
         else:
-            self.add_effect(Effect(
+            self.add_effect(effect=Effect(
                 duration_in_ticks=1,
                 morale_per_tick=-LACK_OF_FOOD_MORALE_PENALTY,
                 effect_id=MORALE_DEPLETION_DUE_TO_UNGER_EFFECT_ID

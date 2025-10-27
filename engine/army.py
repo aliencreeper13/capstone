@@ -10,7 +10,7 @@ from gameobject import GameObject
 from location import Path, PathDirection, GameNode
 from unit import Unit
 from constants import HALF_MORALE, MAX_MORALE
-from utils import new_value_given_morale
+from game_utils import new_value_given_morale
 
 import random
 

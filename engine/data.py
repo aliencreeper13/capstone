@@ -97,7 +97,7 @@ class Population(GameObject):
 
 @dataclass
 class SocietalResources(GameObject):
-    population: Population = Population()
+    population: Population = field(default_factory=Population) # Population()
     employable_population: int = 0 # must be less than or equal to self.population.working_age. Decreases when people work
     employed_population: int = 0
     morale: int = 50 

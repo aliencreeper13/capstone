@@ -1,14 +1,16 @@
 from __future__ import annotations
 
+from abc import ABC
 from typing import TYPE_CHECKING, Optional
 
 from constants import HALF_AUTONOMY
 from data import ExpendableEmpireResources
 
 from effects import EffectWithTicksleft, Effect, UniversalEffect
+from engine.gameobject import public_client_property, private_client_property
 from exceptions import BadEffect, CapitalExclusiveException
 from game import Game, EmptyGame
-from gameobject import GameObject
+from gameobject import GameObject, HasAllegianceMixin
 from ideology import Ideology
 # from effects import Effects
 
@@ -16,7 +18,9 @@ from ideology import Ideology
 if TYPE_CHECKING:
     from city import City
 
-class Empire(GameObject):
+class Empire(GameObject, HasAllegianceMixin):
+
+
     def __init__(self, autonomy: int, capital_city: City, ideology: Ideology):
         assert 0 <= autonomy <= 100
         self._empire_resources = ExpendableEmpireResources()
@@ -37,7 +41,11 @@ class Empire(GameObject):
         for ideological_effect in ideology.effects:
             self.add_universal_or_capital_effect(ideological_effect)
 
-    @property
+    @public_client_property
+    def allegiance(self) -> Empire:  # an empire is allegiant to itself, obviously
+        return self
+
+    @public_client_property
     def capital(self) -> City:
         return self._capital
     
@@ -66,7 +74,7 @@ class Empire(GameObject):
         if not self.assigned_to_game():  # only assign to a game if it is currently not assigned
             self._game = game
 
-    @property
+    @public_client_property
     def game(self):
         return self._game
 
@@ -85,15 +93,15 @@ class Empire(GameObject):
             self._capital = city # set as new capital
             self._capital.set_city_as_capital()
 
-    @property
+    @private_client_property
     def knowledge(self) -> int: 
         return self._knowledge
     
-    @property
+    @private_client_property
     def autonomy(self) -> int:
         return self._autonomy
     
-    @property
+    @public_client_property
     def current_tick(self):
         return self._game.current_tick
     

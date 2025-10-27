@@ -1,6 +1,6 @@
 
 from data import ExpendableCityResources, ExpendableEmpireResources
-from effects import Effect
+from effects import Effect, UniversalEffect
 from dataclasses import dataclass
 
 from gameobject import GameObject
@@ -19,7 +19,7 @@ class Ideology(GameObject):
     # The effects that ALL ideologies possess
     @classmethod
     def neutral_effects(cls) -> list[Effect]:
-        return [Effect(expendable_city_resources_per_tick=ExpendableCityResources(
+        return [UniversalEffect(expendable_city_resources_per_tick=ExpendableCityResources(
             wealth=1
         ))]
 

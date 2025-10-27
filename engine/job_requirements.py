@@ -19,7 +19,7 @@ class ContingentOnInfo:
 class JobRequirements(GameObject):
 
     knowledge_level1: int = 0
-    city_resources_level1: ExpendableCityResources = ExpendableCityResources.empty_resources()
+    city_resources_level1: ExpendableCityResources = field(default_factory=ExpendableCityResources)
     workers_needed_level1: int = 0  # number of workers needed to start job
     specific_units_contingent_on: list[Unit] = field(default_factory=list)  # specific unit instances that need to be active (unsure if will need this)
     unit_types_contingent_on: list[ContingentOnInfo]= field(default_factory=list) # unit classes needed to exist in city to be satisfied (likely buildings)

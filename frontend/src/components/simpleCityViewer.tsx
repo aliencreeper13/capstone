@@ -6,7 +6,11 @@ interface SimpleCity {
   wealth: number;
 }
 
-const CityViewer: React.FC = () => {
+interface City {
+
+}
+
+const SimpleCityViewer: React.FC = () => {
   const [city, setCity] = useState<SimpleCity>({ population: 0, wealth: 0 });
 
   useEffect(() => {
@@ -33,4 +37,4 @@ const CityViewer: React.FC = () => {
   );
 };
 
-export default CityViewer;
+export default SimpleCityViewer;

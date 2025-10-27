@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from army import ArmyAttributes, ArmyUnit
 from building import Building
+from engine.ideology import Ideology
+from engine.location import WorldMap
 from job_requirements import JobRequirements
 from city import City
 from data import ExpendableCityResources, ExpendableEmpireResources
@@ -29,48 +31,48 @@ if __name__ == '__main__':
 # See PyCharm help at https://www.jetbrains.com/help/pycharm/
 
 if __name__ == "__main__":
-    game = Game([])
 
-    US = Empire(50)
+    worldmap = WorldMap(size=(1000, 1000))
+    game = Game(worldmap)
+
+    americanism = Ideology(effects_list=[])
+
+    mequon = City((0, 0), 50)
+    mequon._resources.wealth = 100
+
+    US = Empire(50, capital_city=mequon, ideology=americanism)
     game.add_empire(US)
 
-    mequon = City(10, 50.0)
-    mequon._resources.wealth = 100
-    cuw = Building("CUW", 2, effects=Effect(duration_in_ticks=0,
+    class CUW(Building):
+        name="CUW"
+        size = 5
+        effect = Effect(duration_in_ticks=0,
                                             expendable_city_resources_per_tick=ExpendableCityResources(
                                                 wealth=2
-                                            )),
-                                            requirements=JobRequirements(
+                                            ))
+        job_requirements = JobRequirements(
                                                 city_resources_level1=ExpendableCityResources(
                                                     wealth=10
-                                                )
-                                            ))
+                                                ))
+        description = "Concordia University Wisconsin"
+    # print(isinstance(CUW))
     print("Mequon allegiance before US", mequon.allegiance)
     US.add_city(mequon)
     print("Mequon Allegiance after US", mequon.allegiance)
     print(mequon.knowledge)
-    cuw_job = CreationJob(num_ticks=5, result=cuw)
+    cuw_job = CreationJob(num_ticks=5, result=CUW)
     mequon.add_job(cuw_job)
     print(mequon.allegiance.game)
 
-
-    professor_menuge = ArmyUnit(
-        name="Professor Menuge",
-        size=1,
-        effects=Effect(
+    class Menuge(ArmyUnit):
+        name = "Professor Menuge"
+        size = 1
+        effect = Effect(
             expendable_empire_resources_per_tick=ExpendableEmpireResources(
                 knowledge=1000000000000
-            )
-        ),
-        requirements=JobRequirements(
-            specific_units_contingent_on=[cuw]
-        ),
-        allegiance=US,
-        base_attributes=ArmyAttributes(
-            hitpoints=1000000,
-            speed=100000,
-            damage_per_tick=1000000000000000000000000000000000
-        )
-    )
+            ))
+        job_requirements = JobRequirements()
+        description = "Profound Monty Python enjoyer."
+
 
     game.begin_game()

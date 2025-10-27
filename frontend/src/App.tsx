@@ -1,14 +1,14 @@
 import React from 'react';
 import logo from './logo.svg';
 import './App.css';
-import CityViewer from './components/cityviewer';
+import SimpleCityViewer from './components/simpleCityViewer';
 
 function App() {
   return (
     <div className="App">
       <header className="App-header">
         <img src={logo} className="App-logo" alt="logo" />
-       <CityViewer></CityViewer>
+       <SimpleCityViewer></SimpleCityViewer>
         <a
           className="App-link"
           href="https://reactjs.org"
