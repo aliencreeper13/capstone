@@ -3,4 +3,4 @@ venv/
 idea/
 __pycache__/
 frontend/node_modules/
-engine/tests/private/
+backend/tests/private/

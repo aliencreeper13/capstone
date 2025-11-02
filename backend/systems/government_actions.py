@@ -1,0 +1,433 @@
+"""
+Government Actions System: Taxes, Subsidies, Elections, and other government interventions.
+
+Government actions are special mechanics that empires can use to influence their cities and armies.
+All government actions cost resources (primarily wealth from the capital city) and have effects that
+are applied through the Effect system. Government actions are ideology-specific and may have different
+costs and effects depending on the empire's political system.
+
+This system provides:
+- Tax actions (increase wealth, reduce morale)
+- Subsidy actions (speed up building/upgrades, boost production)
+- Election actions (Republic-specific, boost morale)
+- Propaganda campaigns (modify production or morale)
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Optional
+from abc import ABC, abstractmethod
+
+from .effects import Effect
+from .data import ExpendableCityResources, ExpendableEmpireResources
+from ..core.constants import (
+    TAX_INTENSITY_1_MORALE_PENALTY, TAX_INTENSITY_1_WEALTH_GAIN, TAX_INTENSITY_1_DURATION,
+    TAX_INTENSITY_2_MORALE_PENALTY, TAX_INTENSITY_2_WEALTH_GAIN, TAX_INTENSITY_2_DURATION,
+    TAX_INTENSITY_3_MORALE_PENALTY, TAX_INTENSITY_3_WEALTH_GAIN, TAX_INTENSITY_3_DURATION,
+    SUBSIDY_DEFAULT_COST, SUBSIDY_DEFAULT_SPEEDUP, SUBSIDY_SPEEDUP_MIN, SUBSIDY_SPEEDUP_MAX, SUBSIDY_DEFAULT_DURATION,
+    ELECTION_COST, ELECTION_DURATION, ELECTION_MORALE_BOOST,
+    PROPAGANDA_PATRIOTIC_COST, PROPAGANDA_PATRIOTIC_DURATION, PROPAGANDA_PATRIOTIC_MORALE, PROPAGANDA_PATRIOTIC_WEALTH,
+    PROPAGANDA_ECONOMIC_COST, PROPAGANDA_ECONOMIC_DURATION, PROPAGANDA_ECONOMIC_MORALE, PROPAGANDA_ECONOMIC_WEALTH,
+    PROPAGANDA_POPULIST_COST, PROPAGANDA_POPULIST_DURATION, PROPAGANDA_POPULIST_MORALE, PROPAGANDA_POPULIST_POPULATION,
+    PROPAGANDA_ENVIRONMENTAL_COST, PROPAGANDA_ENVIRONMENTAL_DURATION, PROPAGANDA_ENVIRONMENTAL_FOOD, PROPAGANDA_ENVIRONMENTAL_TIMBER,
+)
+
+if TYPE_CHECKING:
+    from ..entities.empire import Empire
+    from ..entities.city import City
+
+
+class GovernmentAction(ABC):
+    """
+    Base class for all government actions.
+    
+    Government actions are discrete interventions the player can make to influence
+    their empire. Actions have costs (resources from capital city) and effects
+    (temporary or permanent modifications to cities/empire state).
+    
+    Attributes:
+        name: Human-readable name of the action
+        description: What this action does
+        cost_wealth: How much wealth this costs from the capital
+        duration_ticks: How long the effect lasts (0 = indefinite/permanent)
+    """
+    
+    def __init__(
+        self,
+        name: str,
+        description: str,
+        cost_wealth: float = 0,
+        duration_ticks: int = 0
+    ):
+        self.name = name
+        self.description = description
+        self.cost_wealth = cost_wealth
+        self.duration_ticks = duration_ticks
+    
+    @abstractmethod
+    def get_effect(self) -> Effect:
+        """
+        Get the Effect object that represents this action's impact.
+        
+        Returns:
+            An Effect instance that will be applied to city/empire
+        """
+        pass
+    
+    @abstractmethod
+    def can_execute(self, empire: Empire) -> tuple[bool, str]:
+        """
+        Check if this action can be executed by the given empire.
+        
+        Args:
+            empire: The empire attempting the action
+            
+        Returns:
+            Tuple of (can_execute: bool, reason: str)
+            reason is empty string if can_execute is True
+        """
+        pass
+    
+    def get_cost(self) -> ExpendableCityResources:
+        """
+        Get the resource cost of this action.
+        
+        Returns:
+            ExpendableCityResources with the wealth cost set
+        """
+        return ExpendableCityResources(wealth=self.cost_wealth)
+
+
+class TaxAction(GovernmentAction):
+    """
+    Tax Action: Increase wealth production at the cost of morale.
+    
+    Taxes are a way to increase wealth generation but reduce morale due to
+    dissatisfaction. The effectiveness of taxes is modified by corruption:
+    high corruption means tax revenues are reduced as officials embezzle funds.
+    
+    Higher tax rates produce more wealth but have larger morale penalties.
+    Ideology affects the balance: some ideologies handle taxes better than others.
+    """
+    
+    def __init__(self, intensity: int = 1):
+        """
+        Initialize a tax action.
+        
+        Args:
+            intensity: Severity of taxes (1-3)
+                      1 = light taxes (1 morale penalty, 5 wealth generation)
+                      2 = moderate taxes (2.5 morale penalty, 12 wealth generation)
+                      3 = heavy taxes (5 morale penalty, 25 wealth generation)
+        """
+        if not (1 <= intensity <= 3):
+            raise ValueError(f"Tax intensity must be 1-3, got {intensity}")
+        
+        self.intensity = intensity
+        
+        # Tax parameters by intensity (from constants)
+        tax_params = {
+            1: {"morale_penalty": TAX_INTENSITY_1_MORALE_PENALTY, "wealth_gain": TAX_INTENSITY_1_WEALTH_GAIN, "duration": TAX_INTENSITY_1_DURATION, "cost": 0},
+            2: {"morale_penalty": TAX_INTENSITY_2_MORALE_PENALTY, "wealth_gain": TAX_INTENSITY_2_WEALTH_GAIN, "duration": TAX_INTENSITY_2_DURATION, "cost": 0},
+            3: {"morale_penalty": TAX_INTENSITY_3_MORALE_PENALTY, "wealth_gain": TAX_INTENSITY_3_WEALTH_GAIN, "duration": TAX_INTENSITY_3_DURATION, "cost": 0},
+        }
+        params = tax_params[intensity]
+        
+        super().__init__(
+            name=f"Tax Level {intensity}",
+            description=f"Increase wealth but reduce morale. {params['wealth_gain']} wealth/tick, -{params['morale_penalty']} morale/tick for {params['duration']} ticks.",
+            cost_wealth=params["cost"],
+            duration_ticks=params["duration"]
+        )
+        self.morale_penalty = params["morale_penalty"]
+        self.wealth_gain = params["wealth_gain"]
+    
+    def get_effect(self) -> Effect:
+        """Create a temporary tax effect."""
+        return Effect(
+            duration_in_ticks=self.duration_ticks,
+            expendable_city_resources_per_tick=ExpendableCityResources(
+                wealth=self.wealth_gain
+            ),
+            raw_morale_per_tick=-self.morale_penalty
+        )
+    
+    def can_execute(self, empire: Empire) -> tuple[bool, str]:
+        """Taxes can always be executed (if capital exists)."""
+        if empire.capital is None:
+            return False, "Empire has no capital city"
+        return True, ""
+
+
+class SubsidyAction(GovernmentAction):
+    """
+    Subsidy Action: Speed up building construction or upgrade by paying wealth.
+    
+    Subsidies inject resources or speed into a specific building/upgrade job,
+    causing it to complete faster. This is expensive but useful in emergencies.
+    
+    Different subsidy types:
+    - BuildingSubsidy: Speeds up a building construction
+    - UpgradeSubsidy: Speeds up a building upgrade
+    """
+    
+    def __init__(self, target_city: City, speedup_multiplier: float = None, cost_wealth: float = None):
+        """
+        Initialize a subsidy action.
+        
+        Args:
+            target_city: The city where the subsidy applies
+            speedup_multiplier: How much faster (1.0 = normal, 2.0 = twice as fast). Defaults to SUBSIDY_DEFAULT_SPEEDUP
+            cost_wealth: Wealth cost from capital city. Defaults to SUBSIDY_DEFAULT_COST
+        """
+        if speedup_multiplier is None:
+            speedup_multiplier = SUBSIDY_DEFAULT_SPEEDUP
+        if cost_wealth is None:
+            cost_wealth = SUBSIDY_DEFAULT_COST
+            
+        if not (SUBSIDY_SPEEDUP_MIN <= speedup_multiplier <= SUBSIDY_SPEEDUP_MAX):
+            raise ValueError(f"Speedup multiplier must be {SUBSIDY_SPEEDUP_MIN}-{SUBSIDY_SPEEDUP_MAX}, got {speedup_multiplier}")
+        
+        self.target_city = target_city
+        self.speedup_multiplier = speedup_multiplier
+        
+        super().__init__(
+            name=f"Building Subsidy ({speedup_multiplier}x speedup)",
+            description=f"Speed up all job progress in a city by {speedup_multiplier}x for the next {SUBSIDY_DEFAULT_DURATION} ticks.",
+            cost_wealth=cost_wealth,
+            duration_ticks=SUBSIDY_DEFAULT_DURATION
+        )
+    
+    def get_effect(self) -> Effect:
+        """
+        Create a subsidy effect.
+        
+        This effect uses job_speedup_multiplier to speed up job progress.
+        The city's job processing system will read this to speed up job completion.
+        """
+        return Effect(
+            duration_in_ticks=self.duration_ticks,
+            job_speedup_multiplier=self.speedup_multiplier
+        )
+    
+    def can_execute(self, empire: Empire) -> tuple[bool, str]:
+        """Subsidies can execute if capital has enough wealth."""
+        if empire.capital is None:
+            return False, "Empire has no capital city"
+        if empire.capital.resources.wealth < self.cost_wealth:
+            return False, f"Capital has {empire.capital.resources.wealth} wealth, need {self.cost_wealth}"
+        return True, ""
+
+
+class ElectionAction(GovernmentAction):
+    """
+    Election Action: Republic-specific. Boost morale through democratic process.
+    
+    Elections are a unique mechanism for Republics that allows them to increase
+    morale through democratic participation. However, if morale is very low,
+    elections can backfire and further decrease morale (revolts).
+    
+    Only available to Republics (verified in can_execute).
+    """
+    
+    def __init__(self):
+        """Initialize an election action."""
+        super().__init__(
+            name="Hold Elections",
+            description=f"Republic-specific: Boost morale through elections. +{ELECTION_MORALE_BOOST} morale/tick for {ELECTION_DURATION} ticks (can backfire if morale < 25).",
+            cost_wealth=ELECTION_COST,
+            duration_ticks=ELECTION_DURATION
+        )
+    
+    def get_effect(self) -> Effect:
+        """Create an election effect."""
+        return Effect(
+            duration_in_ticks=self.duration_ticks,
+            raw_morale_per_tick=ELECTION_MORALE_BOOST
+        )
+    
+    def can_execute(self, empire: Empire) -> tuple[bool, str]:
+        """Elections only work for Republics."""
+        if empire.capital is None:
+            return False, "Empire has no capital city"
+        
+        # Check if empire's ideology is Republic
+        ideology_name = type(empire._ideology).__name__
+        if ideology_name != "Republic":
+            return False, f"Elections only available for Republics, not {ideology_name}"
+        
+        if empire.capital.resources.wealth < self.cost_wealth:
+            return False, f"Capital has {empire.capital.resources.wealth} wealth, need {self.cost_wealth}"
+        
+        return True, ""
+
+
+class PropagandaAction(GovernmentAction):
+    """
+    Propaganda Campaign: Influence population attitudes and production.
+    
+    Propaganda campaigns are temporary effects that modify population behavior,
+    morale, resource production, or population growth. Different campaigns
+    target different aspects of the civilization.
+    
+    Campaign types:
+    - "Patriotic": +morale, +military production
+    - "Economic": +wealth production, but morale cost
+    - "Populist": +morale, +population growth
+    - "Environmental": +food production, +timber production
+    """
+    
+    def __init__(self, campaign_type: str = "patriotic"):
+        """
+        Initialize a propaganda campaign.
+        
+        Args:
+            campaign_type: Type of campaign ("patriotic", "economic", "populist", "environmental")
+        """
+        campaign_types = {
+            "patriotic": {
+                "name": "Patriotic Campaign",
+                "description": f"Inspire citizens: +{PROPAGANDA_PATRIOTIC_MORALE} morale/tick, +{PROPAGANDA_PATRIOTIC_WEALTH} wealth/tick for {PROPAGANDA_PATRIOTIC_DURATION} ticks",
+                "cost": PROPAGANDA_PATRIOTIC_COST,
+                "duration": PROPAGANDA_PATRIOTIC_DURATION,
+                "effect_data": {"morale": PROPAGANDA_PATRIOTIC_MORALE, "wealth": PROPAGANDA_PATRIOTIC_WEALTH}
+            },
+            "economic": {
+                "name": "Economic Stimulus",
+                "description": f"Boost markets: +{PROPAGANDA_ECONOMIC_WEALTH} wealth/tick, {PROPAGANDA_ECONOMIC_MORALE} morale/tick for {PROPAGANDA_ECONOMIC_DURATION} ticks",
+                "cost": PROPAGANDA_ECONOMIC_COST,
+                "duration": PROPAGANDA_ECONOMIC_DURATION,
+                "effect_data": {"morale": PROPAGANDA_ECONOMIC_MORALE, "wealth": PROPAGANDA_ECONOMIC_WEALTH}
+            },
+            "populist": {
+                "name": "Populist Movement",
+                "description": f"Support the people: +{PROPAGANDA_POPULIST_MORALE} morale/tick, +{PROPAGANDA_POPULIST_POPULATION} population/tick for {PROPAGANDA_POPULIST_DURATION} ticks",
+                "cost": PROPAGANDA_POPULIST_COST,
+                "duration": PROPAGANDA_POPULIST_DURATION,
+                "effect_data": {"morale": PROPAGANDA_POPULIST_MORALE, "population": PROPAGANDA_POPULIST_POPULATION}
+            },
+            "environmental": {
+                "name": "Environmental Initiative",
+                "description": f"Green energy: +{PROPAGANDA_ENVIRONMENTAL_FOOD} food/tick, +{PROPAGANDA_ENVIRONMENTAL_TIMBER} timber/tick for {PROPAGANDA_ENVIRONMENTAL_DURATION} ticks",
+                "cost": PROPAGANDA_ENVIRONMENTAL_COST,
+                "duration": PROPAGANDA_ENVIRONMENTAL_DURATION,
+                "effect_data": {"food": PROPAGANDA_ENVIRONMENTAL_FOOD, "timber": PROPAGANDA_ENVIRONMENTAL_TIMBER}
+            }
+        }
+        
+        if campaign_type.lower() not in campaign_types:
+            raise ValueError(
+                f"Invalid campaign type '{campaign_type}'. "
+                f"Choose from: {list(campaign_types.keys())}"
+            )
+        
+        self.campaign_type = campaign_type.lower()
+        params = campaign_types[self.campaign_type]
+        
+        super().__init__(
+            name=params["name"],
+            description=params["description"],
+            cost_wealth=params["cost"],
+            duration_ticks=params["duration"]
+        )
+        self.effect_data = params["effect_data"]
+    
+    def get_effect(self) -> Effect:
+        """Create a propaganda effect based on campaign type."""
+        data = self.effect_data
+        
+        return Effect(
+            duration_in_ticks=self.duration_ticks,
+            expendable_city_resources_per_tick=ExpendableCityResources(
+                wealth=data.get("wealth", 0),
+                food=data.get("food", 0),
+                timber=data.get("timber", 0),
+                metal=data.get("metal", 0)
+            ),
+            raw_morale_per_tick=float(data.get("morale", 0)),
+            new_people_per_tick=data.get("population", 0)
+        )
+    
+    def can_execute(self, empire: Empire) -> tuple[bool, str]:
+        """Propaganda can execute if capital has enough wealth."""
+        if empire.capital is None:
+            return False, "Empire has no capital city"
+        if empire.capital.resources.wealth < self.cost_wealth:
+            return False, f"Capital has {empire.capital.resources.wealth} wealth, need {self.cost_wealth}"
+        return True, ""
+
+
+# ============================================================================
+# Government Action Registry - For tracking available actions by ideology
+# ============================================================================
+
+class GovernmentActionRegistry:
+    """
+    Registry of government actions available to different ideologies.
+    
+    Different ideologies have different government actions available to them.
+    This registry manages which actions each ideology can perform.
+    """
+    
+    # Default actions available to all ideologies
+    UNIVERSAL_ACTIONS = [
+        "tax_light",
+        "tax_moderate",
+        "tax_heavy",
+        "propaganda_patriotic",
+        "propaganda_economic",
+        "propaganda_populist",
+    ]
+    
+    # Ideology-specific actions
+    IDEOLOGY_SPECIFIC_ACTIONS = {
+        "Republic": ["election"],
+        "Monarchy": ["propaganda_patriotic"],  # Monarchies excel at patriotic campaigns
+        "Dictatorship": ["tax_heavy"],  # Dictatorships can impose harsh taxes
+        "Communism": ["propaganda_economic"],  # Communism excels at economic campaigns
+        "Theocracy": ["propaganda_patriotic"],  # Theocracies excel at patriotic campaigns
+        "Socialism": ["propaganda_populist"],  # Socialism excels at populist campaigns
+        "Anarchy": [],  # Anarchies have limited government control
+    }
+    
+    @staticmethod
+    def get_available_actions(ideology_name: str) -> list[str]:
+        """Get all available actions for an ideology."""
+        universal = GovernmentActionRegistry.UNIVERSAL_ACTIONS
+        ideology_specific = GovernmentActionRegistry.IDEOLOGY_SPECIFIC_ACTIONS.get(
+            ideology_name, []
+        )
+        return universal + ideology_specific
+    
+    @staticmethod
+    def create_action(action_name: str) -> GovernmentAction:
+        """
+        Factory method to create a government action by name.
+        
+        Args:
+            action_name: Name of the action (e.g., "tax_light", "election")
+            
+        Returns:
+            GovernmentAction instance
+            
+        Raises:
+            ValueError: If action_name is not recognized
+        """
+        actions_map = {
+            "tax_light": lambda: TaxAction(intensity=1),
+            "tax_moderate": lambda: TaxAction(intensity=2),
+            "tax_heavy": lambda: TaxAction(intensity=3),
+            "election": lambda: ElectionAction(),
+            "propaganda_patriotic": lambda: PropagandaAction("patriotic"),
+            "propaganda_economic": lambda: PropagandaAction("economic"),
+            "propaganda_populist": lambda: PropagandaAction("populist"),
+            "propaganda_environmental": lambda: PropagandaAction("environmental"),
+        }
+        
+        if action_name not in actions_map:
+            raise ValueError(
+                f"Unknown action '{action_name}'. Available: {list(actions_map.keys())}"
+            )
+        
+        return actions_map[action_name]()
