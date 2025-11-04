@@ -1,0 +1,140 @@
+/* Armies List Styles */
+
+.armies-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.armies-list h3 {
+  margin: 0 0 12px 0;
+  font-size: 16px;
+  color: #2c3e50;
+  font-weight: 600;
+  border-bottom: 2px solid #667eea;
+  padding-bottom: 10px;
+}
+
+.empty-state {
+  text-align: center;
+  color: #95a5a6;
+  font-style: italic;
+  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  border: 1px dashed #bdc3c7;
+}
+
+.armies-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.army-card {
+  background: linear-gradient(135deg, #f8f9fa 0%, #ecf0f1 100%);
+  border: 1px solid #ecf0f1;
+  border-left: 4px solid #667eea;
+  border-radius: 6px;
+  padding: 14px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.army-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+}
+
+.army-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #ecf0f1;
+}
+
+.army-header h4 {
+  margin: 0;
+  font-size: 15px;
+  color: #2c3e50;
+  font-weight: 600;
+}
+
+.army-id {
+  font-size: 11px;
+  color: #95a5a6;
+  background: white;
+  padding: 2px 6px;
+  border-radius: 3px;
+  border: 1px solid #ecf0f1;
+  font-family: monospace;
+}
+
+.army-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.stat-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.stat-row .label {
+  color: #7f8c8d;
+  font-weight: 500;
+  min-width: 90px;
+}
+
+.stat-row .value {
+  font-weight: 700;
+  color: #667eea;
+  min-width: 50px;
+}
+
+.stat-row .status {
+  font-size: 11px;
+  color: #95a5a6;
+}
+
+.hp-bar {
+  width: 100%;
+  height: 22px;
+  background: #ecf0f1;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-top: 6px;
+}
+
+.hp-fill {
+  height: 100%;
+  transition: width 0.3s ease, background-color 0.3s ease;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: white;
+  font-weight: 600;
+}
+
+/* Status Colors */
+.healthy {
+  background: #27ae60;
+}
+
+.wounded {
+  background: #f39c12;
+}
+
+.damaged {
+  background: #e74c3c;
+}
+
+.critical {
+  background: #c0392b;
+}

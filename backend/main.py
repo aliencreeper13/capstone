@@ -19,7 +19,7 @@ from __future__ import annotations
 # Note: This module should be imported via backend.main or run via run_game.py wrapper
 # to ensure proper package context for relative imports
 
-from .entities.army import ArmyAttributes, Troop
+from .entities.army import CombatAttributes, Troop
 from .entities.building import Building
 from .entities.ideology import Ideology
 from .entities.city import City
@@ -146,7 +146,7 @@ def create_demo_game() -> Game:
                 )
             ]
         )
-        army_attributes = ArmyAttributes(
+        army_attributes = CombatAttributes(
             hitpoints=10,
             speed=2,
             damage_per_tick=1

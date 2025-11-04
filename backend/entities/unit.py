@@ -133,7 +133,7 @@ class Unit(GameObject, HasJobRequirementsMixin, ABC):
                 raw_morale_per_tick=self.effect.raw_morale_per_tick * upgrade_bonus,
                 city_base_defense_offered=self.effect.city_base_defense_offered * upgrade_bonus,
                 city_base_protection_offered=self.effect.city_base_protection_offered * upgrade_bonus,
-                efficiency_per_tick=self.effect.efficiency_per_tick * upgrade_bonus,
+                raw_efficiency_per_tick=self.effect.raw_efficiency_per_tick * upgrade_bonus,
                 # Use a special effect ID that ties this upgrade to this specific unit instance
                 effect_id=hash(f"upgrade_{id(self)}")
             )

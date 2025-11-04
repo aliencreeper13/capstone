@@ -1,23 +1,11 @@
 import React from 'react';
-import logo from './logo.svg';
 import './App.css';
-import SimpleCityViewer from './components/simpleCityViewer';
+import GameBoard from './components/GameBoard';
 
 function App() {
   return (
     <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-       <SimpleCityViewer></SimpleCityViewer>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+      <GameBoard useMockData={true} pollInterval={2000} />
     </div>
   );
 }

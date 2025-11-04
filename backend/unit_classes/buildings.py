@@ -1,7 +1,7 @@
-from ..building import Building
-from ..data import ExpendableCityResources, ExpendableEmpireResources
-from ..effects import Effect
-from ..job_requirements import JobRequirements
+from ..entities.building import Building
+from ..systems.data import ExpendableCityResources, ExpendableEmpireResources
+from ..systems.effects import Effect
+from ..systems.job_requirements import JobRequirements
 
 
 class Market(Building):
@@ -138,7 +138,8 @@ class School(Building):
         expendable_empire_resources_per_tick=ExpendableEmpireResources(
             knowledge=1
         ),
-        raw_morale_per_tick=0.1
+        raw_morale_per_tick=0.1,
+        theoretical_new_employable_per_tick=1
     )
     job_requirements = JobRequirements(
         expendable_city_resources_level1=ExpendableCityResources(
@@ -155,7 +156,9 @@ class University(Building):
         duration_in_ticks=0,
         expendable_empire_resources_per_tick=ExpendableEmpireResources(
             knowledge=100
-        )
+        ),
+        theoretical_new_employable_per_tick=2
+        
     )
     job_requirements = JobRequirements(
         expendable_city_resources_level1=ExpendableCityResources(

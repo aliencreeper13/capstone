@@ -1,0 +1,133 @@
+/* Empire Stats Styles */
+
+.empire-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.empire-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 2px solid #667eea;
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+}
+
+.empire-header h1 {
+  margin: 0;
+  font-size: 24px;
+  color: #2c3e50;
+}
+
+.tick-counter {
+  background: #667eea;
+  color: white;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.empire-info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.info-card {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 12px;
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.info-label {
+  font-size: 12px;
+  opacity: 0.9;
+  font-weight: 500;
+}
+
+.info-value {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.aggregate-stats {
+  background: #f8f9fa;
+  padding: 15px;
+  border-radius: 6px;
+  border-left: 4px solid #667eea;
+}
+
+.stat-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  font-size: 14px;
+}
+
+.stat-row:last-child {
+  margin-bottom: 0;
+}
+
+.stat-label {
+  font-weight: 600;
+  color: #34495e;
+}
+
+.stat-value {
+  font-weight: 700;
+  color: #667eea;
+}
+
+.stat-detail {
+  font-size: 12px;
+  color: #95a5a6;
+}
+
+.resources-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px solid #ecf0f1;
+}
+
+.resources-summary .label {
+  font-weight: 600;
+  color: #34495e;
+  font-size: 14px;
+}
+
+.resource-items {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.resource-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: white;
+  padding: 8px 10px;
+  border-radius: 4px;
+  border: 1px solid #ecf0f1;
+  font-size: 13px;
+}
+
+.resource-item .emoji {
+  font-size: 16px;
+}
+
+.resource-item span:last-child {
+  font-weight: 600;
+  color: #667eea;
+}

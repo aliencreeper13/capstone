@@ -229,7 +229,7 @@ city.set_allegiance(empire)
 # Test all getters work
 assert effect.get_city_resources_per_tick(city).food == -1
 assert effect.get_raw_morale_per_tick(city) == 0.5
-assert effect.get_efficiency_per_tick(city) == 0.1
+assert effect.get_raw_efficiency_per_tick(city) == 0.1
 assert effect.get_city_hitpoint_regeneration_per_tick(city) == 2
 assert effect.get_new_people_per_tick(city) == 3
 assert effect.get_dead_people_per_tick(city) == 1

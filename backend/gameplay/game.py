@@ -10,10 +10,11 @@ The Game engine coordinates:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 from time import sleep
 
 from ..core.gameobject import GameObject
+from .location import GameNode
 
 if TYPE_CHECKING:
     from ..entities.empire import Empire
@@ -70,15 +71,85 @@ class Game(GameObject):
         
         All empires and their cities process their actions, resources
         are produced/consumed, jobs progress, etc.
+        Settlement checks are performed to establish new cities on unclaimed nodes
+        when 10+ settlers are present.
         """
         self._current_tick += 1
         for empire in self._empires:
             empire.update(self._current_tick)
+        
+        # Check for settler settlements on unclaimed nodes
+        self._check_settler_settlements()
 
     @property
     def current_tick(self) -> int:
         """Get the current game tick."""
         return self._current_tick
+    
+    @property
+    def worldmap(self) -> WorldMap:
+        """Get the world map."""
+        return self._worldmap
+
+    def _check_settler_settlements(self) -> None:
+        """
+        Check all unclaimed nodes for settlement conditions.
+        
+        If an unclaimed node has 10 or more Settlers from the same empire,
+        convert it to a City belonging to that empire.
+        """
+        if self._worldmap is None:
+            return
+        
+        # Get a copy of nodes list since we'll modify it during iteration
+        nodes_to_check = list(self._worldmap.get_nodes())
+        
+        for node in nodes_to_check:
+            # Skip if node is already claimed
+            if node.is_claimed:
+                continue
+            
+            # Count settlers and group them by empire
+            settler_groups: dict[Empire, int] = {}
+            for group in node.armies():
+                for unit in group.mobile_units:
+                    # Check if unit is a Settler
+                    if type(unit).__name__ == "Settler":
+                        empire = unit.allegiance
+                        if empire not in settler_groups:
+                            settler_groups[empire] = 0
+                        settler_groups[empire] += 1
+            
+            # Check if any empire has 10+ settlers on this node
+            for empire, settler_count in settler_groups.items():
+                if settler_count >= 10 and empire is not None:
+                    self._settle_node_as_city(node, empire)
+                    break  # Only one empire can settle per node per tick
+
+    def _settle_node_as_city(self, node: GameNode, empire: Empire) -> None:
+        """
+        Establish a City on an unclaimed GameNode.
+        
+        The new city is added to the node
+        
+        Args:
+            node: The GameNode to settle
+            empire: The empire establishing the city
+        """
+        from ..entities.city import City
+        
+        # Create a new city within the node
+        new_city = City(gamenode=node, size=5)
+        new_city.set_allegiance(empire)
+        
+        # Add the city to the node
+        node.set_city(new_city)
+        
+        # Add the city to the empire
+        empire.add_city(new_city)
+        
+        # Mark the node as claimed
+        node.claim_for_empire(empire)
 
     # ========== Game Lifecycle ==========
 

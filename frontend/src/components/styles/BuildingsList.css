@@ -1,0 +1,97 @@
+/* Buildings List Styles */
+
+.buildings-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.buildings-list h3 {
+  margin: 0 0 12px 0;
+  font-size: 16px;
+  color: #2c3e50;
+  font-weight: 600;
+  border-bottom: 2px solid #667eea;
+  padding-bottom: 10px;
+}
+
+.empty-state {
+  text-align: center;
+  color: #95a5a6;
+  font-style: italic;
+  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  border: 1px dashed #bdc3c7;
+}
+
+.buildings-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.building-group {
+  background: linear-gradient(135deg, #f8f9fa 0%, #ecf0f1 100%);
+  border: 1px solid #ecf0f1;
+  border-radius: 6px;
+  padding: 12px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.building-group:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+}
+
+.building-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: #34495e;
+}
+
+.icon {
+  font-size: 24px;
+}
+
+.name {
+  flex: 1;
+  font-size: 14px;
+}
+
+.count {
+  background: #667eea;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.building-levels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.level-badge {
+  background: white;
+  color: #667eea;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid #667eea;
+}
+
+.space-info {
+  font-size: 11px;
+  color: #7f8c8d;
+  padding-top: 6px;
+  border-top: 1px solid #ecf0f1;
+  text-align: right;
+}

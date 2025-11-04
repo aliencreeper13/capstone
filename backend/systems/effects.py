@@ -8,6 +8,7 @@ They may be indefinite (building passive effects) or temporary (spell effects, d
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from math import ceil, floor
 from typing import TYPE_CHECKING, Optional, Callable
 
 from ..core.gameobject import GameObject
@@ -33,7 +34,7 @@ class Effect(GameObject):
         expendable_city_resources_pct_increase: Percentage bonuses to city resource production
         expendable_empire_resources_pct_increase: Percentage bonuses to empire resources
         morale_per_tick: Morale change per tick
-        efficiency_per_tick: Empire efficiency change per tick (negative = corruption/inefficiency)
+        raw_efficiency_per_tick: Empire efficiency change per tick (negative = corruption/inefficiency)
         city_base_defense_offered: Defensive bonus to city
         city_base_protection_offered: Protective bonus to city (absorption)
         city_hitpoint_regeneration_per_tick: HP recovered per tick
@@ -61,8 +62,10 @@ class Effect(GameObject):
         default_factory=ExpendableEmpireResources
     )
 
+    theoretical_new_employable_per_tick: float = 0.0 # *Theoretical* new workers generated per tick. Actual workers per tick will be rounded to int
+
     raw_morale_per_tick: float = 0.0
-    efficiency_per_tick: float = 0.0  # Direct empire efficiency change per tick
+    raw_efficiency_per_tick: float = 0.0  # Direct empire efficiency change per tick
 
     city_base_defense_offered: int = 0
     city_base_protection_offered: int = 0
@@ -98,12 +101,15 @@ class Effect(GameObject):
     
     # Dynamic per-tick empire resource changes (overrides expendable_empire_resources_per_tick)
     dynamic_expendable_empire_resources_per_tick: Optional[Callable[[City], ExpendableEmpireResources]] = None
+
+    # Dynamic per-tick new employable workers (overrides theoretical_new_employable_per_tick)
+    dynamic_theoretical_new_employable_per_tick: Optional[Callable[[City], float]] = None
     
     # Dynamic per-tick morale change (overrides morale_per_tick)
     dynamic_morale_per_tick: Optional[Callable[[City], float]] = None
     
     # Dynamic per-tick efficiency change (overrides efficiency_per_tick)
-    dynamic_efficiency_per_tick: Optional[Callable[[City], float]] = None
+    dynamic_raw_efficiency_per_tick: Optional[Callable[[City], float]] = None
     
     # Dynamic per-tick HP regeneration (overrides city_hitpoint_regeneration_per_tick)
     dynamic_city_hitpoint_regeneration_per_tick: Optional[Callable[[City], int]] = None
@@ -154,6 +160,13 @@ class Effect(GameObject):
         
         return True
     
+    def actual_new_employable_per_tick(self, city: City) -> int:
+        """Get the actual new workers generated per tick, cannot exceed working-age population (rounded int)."""
+        if self.dynamic_theoretical_new_employable_per_tick is not None:
+            return ceil(self.dynamic_theoretical_new_employable_per_tick(city))
+        else:
+            return ceil(self.theoretical_new_employable_per_tick)
+    
     def get_city_resources_per_tick(self, city: City) -> ExpendableCityResources:
         """Get the actual city resource changes for this tick, using dynamic values if available."""
         if self.dynamic_expendable_city_resources_per_tick is not None:
@@ -172,11 +185,11 @@ class Effect(GameObject):
             return self.dynamic_morale_per_tick(city)
         return self.raw_morale_per_tick
     
-    def get_efficiency_per_tick(self, city: City) -> float:
+    def get_raw_efficiency_per_tick(self, city: City) -> float:
         """Get the actual efficiency change for this tick, using dynamic values if available."""
-        if self.dynamic_efficiency_per_tick is not None:
-            return self.dynamic_efficiency_per_tick(city)
-        return self.efficiency_per_tick
+        if self.dynamic_raw_efficiency_per_tick is not None:
+            return self.dynamic_raw_efficiency_per_tick(city)
+        return self.raw_efficiency_per_tick
     
     def get_city_hitpoint_regeneration_per_tick(self, city: City) -> int:
         """Get the actual HP regeneration for this tick, using dynamic values if available."""

@@ -57,7 +57,8 @@ class Ideology(GameObject):
         return [UniversalEffect(
             expendable_city_resources_per_tick=ExpendableCityResources(
                 wealth=1
-            ), 
+            ),
+            theoretical_new_employable_per_tick=3
         ), # Single effect that scales food consumption with population
         UniversalEffect(
             duration_in_ticks=0,  # indefinite
@@ -154,7 +155,7 @@ class Communism(Ideology):
             # Efficiency penalty for bureaucratic overhead (reduces efficiency = increases corruption)
             UniversalEffect(
                 duration_in_ticks=0,
-                efficiency_per_tick=-2.0  # -2 efficiency per tick = +2 corruption per tick
+                raw_efficiency_per_tick=-2.0  # -2 efficiency per tick = +2 corruption per tick
             )
         ],
         autonomy=20)

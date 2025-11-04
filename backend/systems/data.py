@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 from dataclasses import dataclass, field
+from typing import Optional
 
 from ..core.gameobject import GameObject
 
@@ -122,13 +123,23 @@ class Population(GameObject):
     
     Attributes:
         population_by_age: List where index n contains the count of people aged n years
-        workers_by_age: List where index n contains trained workers aged n years
+        employable_population_by_age: List where index n contains people who can work aged n years
+        employed_population_by_age: List where index n contains people actively employed aged n years
         max_lifespan: Maximum age a person can reach (deaths occur at this age)
     """
     population_by_age: list[int] = field(default_factory=lambda: [0]*100)
-    workers_by_age: list[int] = field(default_factory=lambda: [0]*100)
+    employable_population_by_age: list[int] = field(default_factory=lambda: [0]*100)
+    employed_population_by_age: list[int] = field(default_factory=lambda: [0]*100)
     max_lifespan: int = 80  # Default lifespan (can be increased by hospitals)
-
+    @property
+    def unemployed_employable_population_by_age(self) -> list[int]:
+        """Get list of employable but currently unemployed population by age."""
+        unemployed = []
+        for age in range(len(self.employable_population_by_age)):
+            unemployed.append(
+                self.employable_population_by_age[age] - self.employed_population_by_age[age]
+            )
+        return unemployed
     def add_population(self, num_people: int, age_group: int = 0) -> None:
         """
         Add population at a specific age group.
@@ -140,17 +151,30 @@ class Population(GameObject):
         if 0 <= age_group < len(self.population_by_age):
             self.population_by_age[age_group] += num_people
             
-    def add_workers_by_age(self, num_workers: int, age_group: int) -> None:
+    def add_employable_by_age(self, age_group: int, num_workers: int) -> None:
         """
         Add trained workers at a specific age group.
         
         Args:
-            num_workers: Number of workers to add
             age_group: Age of the workers
+            num_workers: Number of workers to add
+            
         """
-        if 0 <= age_group < len(self.workers_by_age):
-            self.workers_by_age[age_group] += num_workers
-
+        if 0 <= age_group < len(self.employable_population_by_age):
+            self.employable_population_by_age[age_group] += num_workers
+    def remove_employable_by_age(self, age_group: int, num_workers: Optional[int] = None) -> None:
+        """
+        Remove trained workers at a specific age group.
+        
+        Args:
+            age_group: Age of the workers
+            num_workers: Number of workers to remove. If None, then all workers are removed
+            
+        """
+        if num_workers is None:
+            self.employable_population_by_age[age_group] = 0
+        else:
+            self.employable_population_by_age[age_group] = max(0, self.employable_population_by_age[age_group] - num_workers)
     def population_in_age_range(self, minimum: int, maximum: int) -> int:
         """
         Count total population in a given age range.
@@ -181,8 +205,8 @@ class Population(GameObject):
         """
         num = 0
         for age in range(minimum, maximum + 1):
-            if age < len(self.workers_by_age):
-                num += self.workers_by_age[age]
+            if age < len(self.employable_population_by_age):
+                num += self.employable_population_by_age[age]
         return num
     
     def total(self) -> int:
@@ -191,7 +215,53 @@ class Population(GameObject):
     
     def total_workers(self) -> int:
         """Return total trained workers across all age groups."""
-        return sum(self.workers_by_age)
+        return sum(self.employable_population_by_age)
+    
+    def employ_workers(self, num_workers: int) -> int:
+        """
+        Employ workers from the unemployed employable population.
+        
+        Takes from the pool of employable but unemployed workers across all age groups.
+        
+        Args:
+            num_workers: Number of workers to employ
+            
+        Returns:
+            Number of workers actually employed (may be less if not enough available)
+        """
+        employed = 0
+        for age in range(len(self.employed_population_by_age)):
+            unemployed = self.employable_population_by_age[age] - self.employed_population_by_age[age]
+            to_employ = min(unemployed, num_workers - employed)
+            if to_employ > 0:
+                self.employed_population_by_age[age] += to_employ
+                employed += to_employ
+                if employed >= num_workers:
+                    break
+        return employed
+    
+    def layoff_workers(self, num_workers: int) -> int:
+        """
+        Lay off workers from the employed population.
+        
+        Releases workers from employment across all age groups.
+        
+        Args:
+            num_workers: Number of workers to lay off
+            
+        Returns:
+            Number of workers actually laid off (may be less if not enough employed)
+        """
+        laid_off = 0
+        for age in range(len(self.employed_population_by_age)):
+            employed = self.employed_population_by_age[age]
+            to_layoff = min(employed, num_workers - laid_off)
+            if to_layoff > 0:
+                self.employed_population_by_age[age] -= to_layoff
+                laid_off += to_layoff
+                if laid_off >= num_workers:
+                    break
+        return laid_off
     
     def age_population(self) -> int:
         """
@@ -203,20 +273,24 @@ class Population(GameObject):
         deaths = 0
         # Age population backwards to avoid double-aging
         new_ages = [0] * len(self.population_by_age)
-        new_workers = [0] * len(self.workers_by_age)
+        new_workers = [0] * len(self.employable_population_by_age)
+        new_employed = [0] * len(self.employed_population_by_age)
         
         for age in range(len(self.population_by_age)):
             if age < self.max_lifespan:
                 # Move population to next age group
                 new_ages[age + 1] = self.population_by_age[age]
-                if age + 1 < len(self.workers_by_age):
-                    new_workers[age + 1] = self.workers_by_age[age]
+                if age + 1 < len(self.employable_population_by_age):
+                    new_workers[age + 1] = self.employable_population_by_age[age]
+                if age + 1 < len(self.employed_population_by_age):
+                    new_employed[age + 1] = self.employed_population_by_age[age]
             else:
                 # People at or beyond max lifespan die
                 deaths += self.population_by_age[age]
         
         self.population_by_age = new_ages
-        self.workers_by_age = new_workers
+        self.employable_population_by_age = new_workers
+        self.employed_population_by_age = new_employed
         return deaths
 
 
@@ -226,15 +300,24 @@ class SocietalResources(GameObject):
     Aggregates population and morale metrics for a city.
     
     Attributes:
-        population: Age-tracked population data
-        employable_population: Workers trained to work (max = working age population)
-        employed_population: Currently working population (max = employable_population)
+        population: Age-tracked population data with employable and employed breakdowns by age
         morale: City morale level (0-100, 50.0 is neutral)
+    
+    Note: employable_population and employed_population are computed from Population's
+    employable_population_by_age and employed_population_by_age lists and should not be stored.
     """
     population: Population = field(default_factory=Population)
-    employable_population: int = 0
-    employed_population: int = 0
-    morale: float = 50.0 
+    morale: float = 50.0  # currently unused, might remove
+    
+    @property
+    def employable_population(self) -> int:
+        """Calculate total employable population across all age groups."""
+        return sum(self.population.employable_population_by_age)
+    
+    @property
+    def employed_population(self) -> int:
+        """Calculate total employed population across all age groups."""
+        return sum(self.population.employed_population_by_age)
 
 
 @dataclass

@@ -283,6 +283,7 @@ def display_status(city: City, empire: Empire, tick: int):
     city_name = getattr(city, 'name', 'Capital')
     print(f"\n[CITY] {city_name}")
     print(f"  Population: {city.total_population}")
+    print(f"  Employable population: {city.employable_population}")
     print(f"  Morale: {city.morale:.1f}/100")
     try:
         space_used = sum(b.size for b in city._buildings) if city._buildings else 0

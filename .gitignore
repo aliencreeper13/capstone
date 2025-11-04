@@ -4,3 +4,4 @@ idea/
 __pycache__/
 frontend/node_modules/
 backend/tests/private/
+*.md

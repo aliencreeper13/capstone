@@ -13,6 +13,7 @@ import sys
 from backend.entities.city import City
 from backend.entities.empire import Empire
 from backend.entities.ideology import NeutralIdeology
+from backend.gameplay.location import GameNode
 from backend.systems.effects import Effect
 from backend.systems.data import ExpendableCityResources
 from backend.systems.game_utils import bounded_stat_from_raw, raw_stat_from_bounded
@@ -56,7 +57,8 @@ def test_city_morale():
     print("="*70)
     
     # Create city with baseline morale
-    city = City((0, 0), size=50, morale=50.0)
+    node = GameNode((0, 0), size=50)
+    city = City(gamenode=node, size=50, morale=50.0)
     assert abs(city.morale - 50.0) < 0.0001, "Initial morale should be 50"
     assert abs(city._raw_morale - 0.0) < 0.0001, "Initial raw morale should be 0"
     print("✓ Initialization: morale=50, raw_morale=0")
@@ -75,7 +77,8 @@ def test_city_morale():
     print(f"✓ More morale: raw +1000 total → displayed {display:.2f}")
     
     # Test negative morale
-    city2 = City((1, 1), size=50, morale=50.0)
+    node2 = GameNode((1, 1), size=50)
+    city2 = City(gamenode=node2, size=50, morale=50.0)
     city2.add_raw_morale(-100)
     assert city2._raw_morale == -100.0, "Raw morale should go negative"
     display_low = city2.morale
@@ -89,7 +92,8 @@ def test_empire_efficiency():
     print("TEST 3: Empire Efficiency System")
     print("="*70)
     
-    city = City((0, 0), size=50)
+    node = GameNode((0, 0), size=50)
+    city = City(gamenode=node, size=50)
     empire = Empire(50, city, NeutralIdeology())
     
     # Check initial state
@@ -122,7 +126,8 @@ def test_morale_effects():
     print("TEST 4: Morale Effects")
     print("="*70)
     
-    city = City((0, 0), size=50)
+    node = GameNode((0, 0), size=50)
+    city = City(gamenode=node, size=50)
     initial_morale = city.morale
     initial_raw = city._raw_morale
     
@@ -149,7 +154,8 @@ def test_revolt_threshold():
     
     from backend.core.constants import MORALE_REVOLT_THRESHOLD
     
-    city = City((0, 0), size=50, morale=50.0)
+    node = GameNode((0, 0), size=50)
+    city = City(gamenode=node, size=50, morale=50.0)
     
     # Reduce morale drastically
     city.add_raw_morale(-10000)  # Very negative raw morale

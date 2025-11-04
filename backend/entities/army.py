@@ -1,8 +1,9 @@
 """
-Army system for military units and combat mechanics.
+MobileUnitGroup system for managing mobile units and combat mechanics.
 
-Armies are composed of troops and can move across the map, attack cities,
-and engage in combat with other armies.
+MobileUnitGroups are generic containers for mobile units (both Troops and PassiveUnits).
+They can move across the map, attack cities, and engage in combat with other groups.
+All combat mechanics remain identical regardless of unit type composition.
 """
 
 from __future__ import annotations
@@ -17,6 +18,7 @@ from ..core.engine_utils import soft_isinstance
 from ..systems.game_utils import new_value_given_morale
 from ..gameplay.location import Path, PathDirection, GameNode
 from .unit import Unit
+from .mobile_unit import CombatAttributes, MobileUnit
 from ..core.exceptions import (
     AlreadyContainedException,
     BadAllegianceException,
@@ -31,26 +33,10 @@ if TYPE_CHECKING:
     from .city import City
 
 
-@dataclass
-class ArmyAttributes(GameObject):
-    """
-    Represents the combat attributes of an army or troop.
-    
-    Attributes:
-        hitpoints: Current HP (when 0 or below, unit is destroyed)
-        speed: Movement speed along paths
-        damage_per_tick: Damage dealt per combat tick
-        morale: Combat morale affecting combat effectiveness (0-100)
-    """
-    hitpoints: float
-    speed: float
-    damage_per_tick: float
-    morale: float = HALF_MORALE
 
-
-class Troop(Unit):
+class Troop(MobileUnit):
     """
-    A military unit that can be added to armies.
+    A military unit that can be added to mobile unit groups.
     
     Troops have combat attributes, morale, and damage mechanics.
     Morale affects combat effectiveness - lower morale = reduced stats and higher casualty rates.
@@ -64,101 +50,29 @@ class Troop(Unit):
         _current_attributes: Current stats adjusted by morale
         _morale_sensitivity: How much morale affects combat effectiveness
     """
-    
-    base_attributes: ArmyAttributes
-    
-    def __init__(self, *args, **kwargs):
-        """Initialize troop with base combat attributes and neutral morale."""
-        super().__init__(*args, **kwargs)
-        self._allegiance: Optional[Empire] = None
-        
-        self._base_attributes: ArmyAttributes = self.base_attributes
-        self._current_attributes: ArmyAttributes = self.base_attributes
-        self._current_attributes.morale = HALF_MORALE
-        self._morale_sensitivity = 0.01
+    pass
 
-    def set_allegiance(self, empire: Empire):
-        """Set the empire this troop serves."""
-        self._allegiance = empire
-
-    @property
-    def allegiance(self) -> Optional[Empire]:
-        """Get the empire this troop is allegiant to."""
-        return self._allegiance
-
-    @property
-    def current_attributes(self) -> ArmyAttributes:
-        """Get current combat attributes (adjusted for morale)."""
-        return self._current_attributes
-    
-    @property
-    def current_morale(self) -> float:
-        """Get current morale level."""
-        return self._current_attributes.morale
-    
-    @property
-    def max_attributes(self) -> ArmyAttributes:
-        """
-        Get maximum possible attributes at max morale.
-        
-        Returns stats scaled up to reflect max morale condition.
-        """
-        return ArmyAttributes(
-            hitpoints=new_value_given_morale(self._base_attributes.hitpoints, MAX_MORALE),
-            speed=new_value_given_morale(self._base_attributes.speed, MAX_MORALE),
-            damage_per_tick=new_value_given_morale(self._base_attributes.damage_per_tick, MAX_MORALE),
-            morale=MAX_MORALE
-        )
-    
-    def apply_damage(self, dmg: float):
-        """
-        Apply damage to this troop.
-        
-        Damage reduces HP and causes morale drop proportional to HP lost.
-        Units with low morale take higher casualties (morale-based targeting).
-        
-        Args:
-            dmg: Damage to apply (clamped to current HP)
-        """
-        dmg = min(dmg, self._current_attributes.hitpoints)
-        if dmg <= 0:
-            return
-        
-        # Compute % of HP lost
-        hp_before = self._current_attributes.hitpoints
-        self._current_attributes.hitpoints -= dmg
-        hp_lost_fraction = dmg / hp_before if hp_before > 0 else 0.0
-
-        # Morale drops proportionally to HP lost
-        morale_drop = hp_lost_fraction * MAX_MORALE * self._morale_sensitivity
-        self._current_attributes.morale = max(0.0, self._current_attributes.morale - morale_drop)
-
-    @property
-    def is_dead(self) -> bool:
-        """Return True if troop is dead (HP <= 0)."""
-        return self._current_attributes.hitpoints <= 0
-
-
-class Army(GameObject):
+class MobileUnitGroup(GameObject):
     """
-    A military force composed of multiple troops.
+    A generic container for mobile units (troops, passive units, or mixed).
     
-    Armies have combined attributes, can move on paths, occupy game nodes (cities),
-    and engage in combat. Army speed is limited by slowest unit.
+    MobileUnitGroups have combined attributes, can move on paths, occupy game nodes (cities),
+    and engage in combat. Group speed is limited by slowest unit. All combat mechanics
+    work identically whether the group contains troops, passive units, or a mix.
     
     Instance attributes:
-        _allegiance: Empire this army serves
-        _army_units: List of troops in this army
-        _gamenode: City or location this army is currently in
-        _path: Path this army is currently traveling on
+        _allegiance: Empire this group serves (None for passive units in production)
+        _mobile_units: List of mobile units (MobileUnit subclasses) in this group
+        _gamenode: City or location this group is currently in
+        _path: Path this group is currently traveling on
         _path_position: Position along current path (0.0-1.0)
     """
     
     def __init__(self, allegiance: Optional[Empire]):
-        """Initialize empty army for an empire."""
+        """Initialize empty mobile unit group for an empire."""
         super().__init__()
         self._allegiance: Optional[Empire] = allegiance
-        self._army_units: list[Troop] = []
+        self._mobile_units: list[MobileUnit] = []
         self._gamenode: Optional[GameNode] = None
         self._path: Optional[Path] = None
         self._path_position: Optional[float] = 0.0
@@ -206,34 +120,44 @@ class Army(GameObject):
             else:
                 raise BadDirectionException()
 
+    def add_mobile_unit(self, mobile_unit: MobileUnit):
+        """
+        Add a mobile unit (troop or passive unit) to this group.
+        
+        Args:
+            mobile_unit: MobileUnit to add
+            
+        Raises:
+            BadAllegianceException: If unit has different allegiance
+            AlreadyContainedException: If unit already in group
+        """
+        if mobile_unit.allegiance is not self._allegiance:
+            raise BadAllegianceException()
+        
+        if mobile_unit in self._mobile_units:
+            raise AlreadyContainedException()
+        
+        self._mobile_units.append(mobile_unit)
+    
     def add_troop(self, troop: Troop):
         """
-        Add a troop to this army.
+        Add a troop to this group (convenience method).
         
         Args:
             troop: Troop to add
-            
-        Raises:
-            BadAllegianceException: If troop has different allegiance
-            AlreadyContainedException: If troop already in army
         """
-        if troop.allegiance is not self._allegiance:
-            raise BadAllegianceException()
-        
-        if troop in self._army_units:
-            raise AlreadyContainedException()
-        
-        self._army_units.append(troop)
+        self.add_mobile_unit(troop)
     
     @property
-    def current_attributes(self) -> ArmyAttributes:
+    def current_attributes(self) -> CombatAttributes:
         """
-        Get combined attributes of all troops in army.
+        Get combined attributes of all mobile units in group.
         
         Speed is the slowest unit's speed. Morale is average. HP and damage are totaled.
+        Works with any combination of troops and passive units.
         """
-        if len(self._army_units) == 0:
-            return ArmyAttributes(
+        if len(self._mobile_units) == 0:
+            return CombatAttributes(
                 hitpoints=0,
                 speed=0,
                 damage_per_tick=0,
@@ -245,35 +169,35 @@ class Army(GameObject):
         total_morale = 0.0
         slowest_speed = float('inf')
 
-        for army_unit in self._army_units:
-            total_hitpoints += army_unit.current_attributes.hitpoints
-            total_damage_per_tick += army_unit.current_attributes.damage_per_tick
-            total_morale += army_unit.current_attributes.morale
+        for mobile_unit in self._mobile_units:
+            total_hitpoints += mobile_unit.current_attributes.hitpoints
+            total_damage_per_tick += mobile_unit.current_attributes.damage_per_tick
+            total_morale += mobile_unit.current_attributes.morale
 
-            if army_unit.current_attributes.speed < slowest_speed:
-                slowest_speed = army_unit.current_attributes.speed
+            if mobile_unit.current_attributes.speed < slowest_speed:
+                slowest_speed = mobile_unit.current_attributes.speed
 
-        average_morale = total_morale / len(self._army_units)
+        average_morale = total_morale / len(self._mobile_units)
         assert 0 <= average_morale <= MAX_MORALE
 
-        # Army speed is limited by slowest unit
-        army_speed = slowest_speed
+        # Group speed is limited by slowest unit
+        group_speed = slowest_speed
 
-        return ArmyAttributes(
+        return CombatAttributes(
             hitpoints=total_hitpoints,
-            speed=army_speed,
+            speed=group_speed,
             damage_per_tick=total_damage_per_tick,
             morale=average_morale
         )
     
     @property
     def total_damage_per_tick(self) -> float:
-        """Get total damage output of army."""
+        """Get total damage output of group."""
         return self.current_attributes.damage_per_tick
 
     @property
     def speed(self) -> int:
-        """Get army movement speed (slowest unit)."""
+        """Get group movement speed (slowest unit)."""
         return self.current_attributes.speed
 
     @property
@@ -283,83 +207,137 @@ class Army(GameObject):
     
     @property
     def size(self) -> int:
-        """Get total size of all troops in army."""
-        return sum(army_unit.size for army_unit in self._army_units)
+        """Get total size of all mobile units in group."""
+        return sum(unit.size for unit in self._mobile_units)
     
     def remove_dead_units(self):
-        """Remove all dead troops from army."""
-        self._army_units = [u for u in self._army_units if not u.is_dead]
+        """Remove all dead units from group."""
+        self._mobile_units = [u for u in self._mobile_units if not u.is_dead]
 
     @property
+    def mobile_units(self) -> list[MobileUnit]:
+        """Get list of all mobile units in group."""
+        return self._mobile_units
+    
+    @property
     def troops(self) -> list[Troop]:
-        """Get list of all troops in army."""
-        return self._army_units
+        """Get list of all troops in group (convenience property)."""
+        return [u for u in self._mobile_units if isinstance(u, Troop)]
 
     @property
     def num_units(self) -> int:
-        """Get number of troops in army."""
-        return len(self._army_units)
+        """Get number of mobile units in group."""
+        return len(self._mobile_units)
     
     @property
     def allegiance(self) -> Optional[Empire]:
-        """Get empire this army serves."""
+        """Get empire this group serves."""
         return self._allegiance
     
     def set_allegiance(self, empire: Empire):
-        """Set the empire this army serves."""
+        """Set the empire this group serves."""
         self._allegiance = empire
     
-    def has_unit(self, army_unit: Troop) -> bool:
-        """Return True if army contains the given troop."""
-        return army_unit in self._army_units
+    def has_unit(self, mobile_unit: MobileUnit) -> bool:
+        """Return True if group contains the given mobile unit."""
+        return mobile_unit in self._mobile_units
 
+    # TODO: Use/improve this method
+    def split_off_units(self, units_to_split: list[MobileUnit]) -> MobileUnitGroup:
+        """
+        Split off specified mobile units into a new group.
+        
+        Args:
+            units_to_split: List of mobile units to move to new group
+            
+        Returns:
+            New MobileUnitGroup containing the split-off units
+            
+        Raises:
+            BadAllegianceException: If any unit has different allegiance
+            IllegalMoveException: If any unit is not in this group
+        """
+        new_group = MobileUnitGroup(allegiance=self._allegiance)
+        
+        for unit in units_to_split:
+            if unit.allegiance is not self._allegiance:
+                raise BadAllegianceException()
+            if unit not in self._mobile_units:
+                raise IllegalMoveException("Unit to split is not in this group.")
+            
+            self._mobile_units.remove(unit)
+            new_group.add_mobile_unit(unit)
+        
+        return new_group
 
-def battle_next_tick(army1: Army, army2: Army):
+    def merge(self, other_mobile_unit_group: MobileUnitGroup):
+        """
+        Merge another mobile unit group into this one.
+        
+        Args:
+            other_mobile_unit_group: Group to merge into this one
+            
+        Raises:
+            BadAllegianceException: If groups have different allegiance
+        """
+        if other_mobile_unit_group.allegiance is not self._allegiance:
+            raise BadAllegianceException()
+        
+        for unit in other_mobile_unit_group.mobile_units:
+            self.add_mobile_unit(unit)
+        
+        # TODO: Implement this
+        # Clear the other group
+        # other_mobile_unit_group._mobile_units.clear()
+
+def battle_next_tick(group1: MobileUnitGroup, group2: MobileUnitGroup):
     """
-    Run one tick of battle between two armies.
+    Run one tick of battle between two mobile unit groups.
     
-    Armies deal damage to each other. Dead units are removed after combat.
+    Groups deal damage to each other. Dead units are removed after combat.
     Units with low morale are targeted more frequently.
+    Combat mechanics work identically regardless of whether groups contain troops, passive units, or a mix.
     
     Args:
-        army1: First attacking army
-        army2: Second attacking army
+        group1: First attacking mobile unit group
+        group2: Second attacking mobile unit group
     """
     # Skip if either side is already dead
-    if army1.num_units == 0 or army2.num_units == 0:
+    if group1.num_units == 0 or group2.num_units == 0:
         return
 
     # Compute outgoing damage
-    dmg1 = army1.current_attributes.damage_per_tick
-    dmg2 = army2.current_attributes.damage_per_tick
+    dmg1 = group1.current_attributes.damage_per_tick
+    dmg2 = group2.current_attributes.damage_per_tick
 
     # Each side receives the other's damage
-    _distribute_damage(army2, dmg1)  # army1 attacks army2
-    _distribute_damage(army1, dmg2)  # army2 attacks army1
+    _distribute_damage(group2, dmg1)  # group1 attacks group2
+    _distribute_damage(group1, dmg2)  # group2 attacks group1
 
     # Remove dead units
-    army1.remove_dead_units()
-    army2.remove_dead_units()
+    group1.remove_dead_units()
+    group2.remove_dead_units()
 
 
-def _distribute_damage(target_army: Army, total_damage: float):
+def _distribute_damage(target_group: MobileUnitGroup, total_damage: float):
     """
-    Distribute damage across target army units based on morale bias.
+    Distribute damage across target group units based on morale bias.
     
     Units with low morale take disproportionate casualties (morale-based targeting).
+    Works with any combination of unit types.
     
     Args:
-        target_army: Army receiving damage
+        target_group: Mobile unit group receiving damage
         total_damage: Total damage to distribute
     """
-    if target_army.num_units == 0 or total_damage <= 0:
+    if target_group.num_units == 0 or total_damage <= 0:
         return
 
     # The lower the morale, the higher the chance of being hit
     weights = []
-    for army_unit in target_army.troops:
+    for mobile_unit in target_group.mobile_units:
         # Avoid division by zero; clamp morale to small epsilon
-        weight = 1.0 / max(0.01, army_unit.current_morale)
+        weight = 1.0 / max(0.01, mobile_unit.current_morale)
         weights.append(weight)
     
     total_weight = sum(weights)
@@ -367,42 +345,43 @@ def _distribute_damage(target_army: Army, total_damage: float):
         return
 
     # Apply proportionate damage
-    for unit, weight in zip(target_army.troops, weights):
+    for unit, weight in zip(target_group.mobile_units, weights):
         portion = weight / total_weight
         dmg = total_damage * portion
         unit.apply_damage(dmg)
 
 
-def armies_city_fight_next_tick(armies: list[Army], city: City):
+def mobile_unit_groups_city_fight_next_tick(groups: list[MobileUnitGroup], city: City):
     """
-    Simulate one tick of battle between attacking armies and a defending city.
+    Simulate one tick of battle between attacking mobile unit groups and a defending city.
     
-    Armies and city deal damage to each other. Dead units are removed.
+    Groups and city deal damage to each other. Dead units are removed.
+    Combat mechanics work identically regardless of whether groups contain troops, passive units, or a mix.
     
     Args:
-        armies: List of attacking armies (must share allegiance, must be in city)
+        groups: List of attacking mobile unit groups (must share allegiance, must be in city)
         city: Defending city
         
     Raises:
-        BadAllegianceException: If armies have different allegiance or are city's allegiance
-        IllegalMoveException: If any army is not in the city
+        BadAllegianceException: If groups have different allegiance or share city's allegiance
+        IllegalMoveException: If any group is not in the city
     """
-    if not armies:
+    if not groups:
         return
 
-    # Verify allegiance consistency and that each army is in city
-    attacking_allegiance = armies[0].allegiance
-    for army in armies:
-        if army.allegiance is not attacking_allegiance:
-            raise BadAllegianceException("All armies must share the same allegiance.")
-        if army not in city.armies:
-            raise IllegalMoveException("All armies must be present in the defending city.")
+    # Verify allegiance consistency and that each group is in city
+    attacking_allegiance = groups[0].allegiance
+    for group in groups:
+        if group.allegiance is not attacking_allegiance:
+            raise BadAllegianceException("All groups must share the same allegiance.")
+        if group not in city.armies:
+            raise IllegalMoveException("All groups must be present in the defending city.")
     
     if city.allegiance is attacking_allegiance:
-        raise BadAllegianceException("City and attacking armies cannot share allegiance.")
+        raise BadAllegianceException("City and attacking groups cannot share allegiance.")
 
-    # Armies attack the city
-    total_attack_damage = sum(army.current_attributes.damage_per_tick for army in armies)
+    # Groups attack the city
+    total_attack_damage = sum(group.current_attributes.damage_per_tick for group in groups)
     city.take_damage(dmg=total_attack_damage, attacker=attacking_allegiance)
 
     # City fights back
@@ -410,8 +389,19 @@ def armies_city_fight_next_tick(armies: list[Army], city: City):
         return
 
     total_city_damage = city.defense
-    total_hp = sum(a.current_attributes.hitpoints for a in armies)
+    total_hp = sum(g.current_attributes.hitpoints for g in groups)
     
-    for army in armies:
-        portion = army.current_attributes.hitpoints / total_hp if total_hp > 0 else 0
-        _distribute_damage(army, total_city_damage * portion)
+    for group in groups:
+        portion = group.current_attributes.hitpoints / total_hp if total_hp > 0 else 0
+        _distribute_damage(group, total_city_damage * portion)
+
+
+# Backwards compatibility alias
+def armies_city_fight_next_tick(armies: list[MobileUnitGroup], city: City):
+    """Deprecated: Use mobile_unit_groups_city_fight_next_tick instead."""
+    mobile_unit_groups_city_fight_next_tick(armies, city)
+
+
+# Backwards compatibility class alias
+Army = MobileUnitGroup
+ArmyAttributes = CombatAttributes

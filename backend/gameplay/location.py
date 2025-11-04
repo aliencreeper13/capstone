@@ -15,13 +15,15 @@ from __future__ import annotations
 
 from enum import Enum
 from math import sqrt
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from ..core.exceptions import BadGameNodeException
 from ..core.gameobject import GameObject
 
 if TYPE_CHECKING:
     from ..entities.army import Army, Troop
+    from ..entities.empire import Empire
+    from ..entities.city import City
 
 
 class PathDirection(Enum):
@@ -34,8 +36,8 @@ class WorldMap(GameObject):
     """
     Represents the overall game map structure.
     
-    Currently a placeholder for future expansion. Will eventually manage:
-    - All game nodes on the map
+    Manages:
+    - All game nodes on the map (each node may or may not contain a city)
     - All paths between nodes
     - Map size and terrain
     """
@@ -51,6 +53,29 @@ class WorldMap(GameObject):
         self._size: tuple[int, int] = size
         self._nodes: list[GameNode] = []
         self._paths: dict[tuple[GameNode, GameNode], Path] = {}
+    
+    def add_node(self, node: GameNode) -> None:
+        """
+        Add a game node to the map.
+        
+        Args:
+            node: The node to add
+        """
+        self._nodes.append(node)
+    
+    def remove_node(self, node: GameNode) -> None:
+        """
+        Remove a node from the map (e.g., when it becomes a City).
+        
+        Args:
+            node: The node to remove
+        """
+        if node in self._nodes:
+            self._nodes.remove(node)
+    
+    def get_nodes(self) -> list[GameNode]:
+        """Get all nodes currently on the map."""
+        return self._nodes
 
 
 class Path(GameObject):
@@ -151,12 +176,17 @@ class Path(GameObject):
 
 class GameNode(GameObject):
     """
-    Represents a location on the game map where armies can be stationed.
+    Represents a location on the game map where mobile units can be stationed.
     
     Each node has:
     - Coordinates (x, y)
     - A size (perhaps for future expansion purposes)
-    - A list of armies currently stationed there
+    - A list of mobile unit groups currently stationed there
+    - Optional City contained within (None if node is unclaimed)
+    - Optional allegiance to an empire (None = unclaimed)
+    
+    Nodes can become claimed when 10+ Settlers are stationed and a City is established.
+    A City can only exist on a node if it's claimed by an empire.
     """
     
     def __init__(self, coords: tuple[int, int], size: int):
@@ -172,6 +202,8 @@ class GameNode(GameObject):
         self._y: int = coords[1]
         self._size: int = size
         self._armies: list[Army] = []
+        self._claimed_by_empire: Optional[Empire] = None
+        self._city: Optional[City] = None  # City contained in this node
 
     def add_army(self, army: Army) -> None:
         """
@@ -214,6 +246,70 @@ class GameNode(GameObject):
     def size(self) -> int:
         """Size/capacity of this node."""
         return self._size
+    
+    @property
+    def is_claimed(self) -> bool:
+        """Return True if this node has been claimed by an empire."""
+        return self._claimed_by_empire is not None
+    
+    @property
+    def claimed_by_empire(self) -> Optional[Empire]:
+        """Get the empire that claimed this node, or None if unclaimed."""
+        return self._claimed_by_empire
+    
+    def claim_for_empire(self, empire: Empire) -> None:
+        """
+        Mark this node as claimed by the given empire.
+        
+        Args:
+            empire: The empire claiming this node
+        """
+        self._claimed_by_empire = empire
+    
+    @property
+    def has_city(self) -> bool:
+        """Return True if this node contains a city."""
+        return self._city is not None
+    
+    @property
+    def city(self) -> Optional[City]:
+        """Get the city contained in this node, or None if unclaimed."""
+        return self._city
+    
+    def set_city(self, city: City) -> None:
+        """
+        Set the city contained in this node.
+        
+        The city's size must not exceed the node's size.
+        
+        Args:
+            city: The city to add to this node
+            
+        Raises:
+            ValueError: If city size exceeds node size
+        """
+        if city.size > self._size:
+            raise ValueError(
+                f"City size ({city.size}) cannot exceed node size ({self._size})"
+            )
+        self._city = city
+    
+    def count_settler_units(self) -> int:
+        """
+        Count the number of Settler units currently stationed on this node.
+        
+        Settlers are passive units used for establishing new cities.
+        
+        Returns:
+            Number of Settler units present
+        """
+        from ..unit_classes.passive_units import Settler
+        settler_count = 0
+        for group in self._armies:
+            for unit in group.mobile_units:
+                if isinstance(unit, Settler):
+                    settler_count += 1
+        return settler_count
     
     @staticmethod
     def distance(game_node1: GameNode, game_node2: GameNode) -> float:

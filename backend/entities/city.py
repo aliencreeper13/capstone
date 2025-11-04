@@ -53,8 +53,7 @@ from ..systems.game_utils import new_value_given_morale, bounded_stat_from_raw
 from .unit import Unit
 from .building import Building
 from .army import Army, Troop
-
-from ..gameplay.location import GameNode
+from .mobile_unit import MobileUnit
 
 from ..core.exceptions import (
     NotAssignedToGameException,
@@ -64,9 +63,10 @@ from ..core.exceptions import (
 
 if TYPE_CHECKING:
     from .empire import Empire
+    from ..gameplay.location import GameNode
 
 
-class City(GameNode, HasAllegianceMixin):
+class City(GameObject, HasAllegianceMixin):
     """
     A city: player-controlled urban center for economy and warfare.
     
@@ -75,24 +75,36 @@ class City(GameNode, HasAllegianceMixin):
     - Population (total, employable, employed)
     - Buildings and their effects
     - Job queue (construction, upgrades, unit creation)
-    - Armies and military units
+    - Mobile unit groups (troops and passive units)
     - Morale, defense, and combat
     - Effects and their ticks remaining
     
-    A city always belongs to exactly one GameNode location and can be
-    allied with an Empire.
+    Mobile Unit Groups:
+    - Troops (combat units) go into the troop group
+    - Passive units go into the passive unit group
+    - All movement/location mechanics work identically for both group types
+    
+    A city is contained within a GameNode and has its own size separate from
+    the node's size. The city's size must not exceed its node's size.
+    Each city can be allied with an Empire.
     """
     
-    def __init__(self, coords: tuple[int, int], size: int = 5, morale: float = 50.0):
+    def __init__(self, gamenode: GameNode, size: int = 5, morale: float = 50.0):
         """
-        Initialize a new city at the given location.
+        Initialize a new city within a game node.
         
         Args:
-            coords: (x, y) coordinates on the world map
-            size: Total space available for buildings
+            gamenode: The GameNode this city is located in
+            size: Total space available for buildings (must not exceed node size)
             morale: Initial morale (0-100, default 50)
         """
-        super().__init__(coords=coords, size=size)
+        super().__init__()
+        
+        if size > gamenode.size:
+            raise ValueError(f"City size ({size}) cannot exceed GameNode size ({gamenode.size})")
+        
+        self._gamenode: GameNode = gamenode
+        self._size: int = size
         
         # Resources and capacities
         self._resources: ExpendableCityResources = ExpendableCityResources()
@@ -108,6 +120,8 @@ class City(GameNode, HasAllegianceMixin):
         self._employed_people: int = 0
         self._base_population_capacity: int = 1000
 
+        
+
         # Defense and capture state
         self._base_defense = 100
         self._max_hitpoints: float = 100.0
@@ -122,7 +136,7 @@ class City(GameNode, HasAllegianceMixin):
         # If morale == 50, raw_morale == 0 (baseline)
         from ..systems.game_utils import raw_stat_from_bounded
         if morale == 50.0:
-            self._raw_morale = 0.0  # Baseline case (most common)
+            self._raw_morale = 0.0  # Baseline case (where morale=HALF_MORALE)
         else:
             try:
                 self._raw_morale = raw_stat_from_bounded(morale)
@@ -150,12 +164,22 @@ class City(GameNode, HasAllegianceMixin):
         self._food_consumption_effect_added: bool = False
         self._hunger_penalty_effect_added: bool = False
 
-        # Army for production (new units go here)
-        self._production_army: Army = Army(allegiance=None)
-        self._armies.append(self._production_army)
+        # MobileUnitGroup for troop production (military units go here)
+        self._troop_group: Army = Army(allegiance=None)
+        self._gamenode.add_army(self._troop_group)
+        
+        # MobileUnitGroup for passive unit production (passive units go here)
+        self._passive_unit_group: Army = Army(allegiance=None)
+        self._gamenode.add_army(self._passive_unit_group)
     
     # ========== Properties ==========
 
+    @property
+    def gamenode(self) -> GameNode:
+        """The GameNode this city is contained within."""
+        from ..gameplay.location import GameNode
+        return self._gamenode
+    
     @property
     def empire_captured_by(self) -> Optional[Empire]:
         """The empire that captured this city, if any."""
@@ -182,7 +206,7 @@ class City(GameNode, HasAllegianceMixin):
         """
         Total defensive strength of the city.
         
-        Combines base defense, building effects, and allied armies.
+        Combines base defense, building effects, and allied armies on the node.
         """
         total_defense = self._base_defense
         
@@ -191,8 +215,8 @@ class City(GameNode, HasAllegianceMixin):
             if not effect_with_ticks_left.is_finished():
                 total_defense += effect_with_ticks_left.effect.city_base_defense_offered
         
-        # Add defense from allied armies stationed here
-        for army in self._armies:
+        # Add defense from allied armies stationed on the gamenode
+        for army in self._gamenode.armies():
             if army.allegiance is self.allegiance:
                 total_defense += army.current_attributes.damage_per_tick
         
@@ -281,7 +305,6 @@ class City(GameNode, HasAllegianceMixin):
         """Change empire knowledge by the given amount."""
         if self.allegiance:
             self.allegiance.change_knowledge(value)
-
     @private_client_property
     def total_population(self) -> int:
         """Total population across all age groups."""
@@ -289,8 +312,12 @@ class City(GameNode, HasAllegianceMixin):
     
     @private_client_property
     def employable_population(self) -> int:
-        """Population that is available to work (working age but not employed)."""
-        return self._societal_resources.employable_population
+        """Population trained to work (employable but not yet employed)."""
+        # This is computed from the population's age-based lists
+        total_employable = self._societal_resources.employable_population
+        total_employed = self._societal_resources.employed_population
+        # Unemployable employable = employable - employed
+        return total_employable - total_employed
     
     @public_client_property
     def current_tick(self) -> Optional[int]:
@@ -398,9 +425,14 @@ class City(GameNode, HasAllegianceMixin):
     # ========== Allegiance and Status ==========
 
     def set_allegiance(self, allegiance: Empire) -> None:
-        """Assign this city to an empire."""
+        """
+        Assign this city to an empire.
+        
+        Updates both the troop group and passive unit group to serve the empire.
+        """
         self._allegiance = allegiance
-        self._production_army.set_allegiance(empire=allegiance)
+        self._troop_group.set_allegiance(empire=allegiance)
+        self._passive_unit_group.set_allegiance(empire=allegiance)
 
     def declare_independence(self) -> None:
         """Remove this city from any empire allegiance."""
@@ -416,15 +448,16 @@ class City(GameNode, HasAllegianceMixin):
             num_people: Number of workers to employ
             
         Raises:
-            NotEnoughWorkersException: If not enough employable population
+            NotEnoughWorkersException: If not enough unemployed employable population
         """
-        if self._societal_resources.employable_population - num_people < 0:
+        # Check if there are enough unemployed employable workers
+        unemployed = self._societal_resources.employable_population
+        if unemployed < num_people:
             raise NotEnoughWorkersException(
-                f"Not enough workers: have {self._societal_resources.employable_population}, "
-                f"need {num_people}"
+                f"Not enough unemployed workers: have {unemployed}, need {num_people}"
             )
-        self._societal_resources.employable_population -= num_people
-        self._societal_resources.employed_population += num_people
+        # Use the population's employ_workers method to handle age-based employment
+        self._societal_resources.population.employ_workers(num_people)
 
     def _lay_off_workers(self, num_people: int) -> None:
         """
@@ -436,13 +469,13 @@ class City(GameNode, HasAllegianceMixin):
         Raises:
             NotEnoughWorkersException: If not enough employed population
         """
-        if self._societal_resources.employed_population - num_people < 0:
+        employed = self._societal_resources.employed_population
+        if employed < num_people:
             raise NotEnoughWorkersException(
-                f"Not enough employed workers to lay off: have {self._societal_resources.employed_population}, "
-                f"need {num_people}"
+                f"Not enough employed workers to lay off: have {employed}, need {num_people}"
             )
-        self._societal_resources.employable_population += num_people
-        self._societal_resources.employed_population -= num_people
+        # Use the population's layoff_workers method to handle age-based layoffs
+        self._societal_resources.population.layoff_workers(num_people)
 
     def increase_population(self, new_people: int) -> None:
         """
@@ -518,16 +551,30 @@ class City(GameNode, HasAllegianceMixin):
 
     # ========== Army and Units ==========
 
-    def _add_army_unit(self, army_unit: Troop) -> None:
+    def _add_troop(self, troop: Troop) -> None:
         """
-        Add a newly created military unit to the production army.
+        Add a newly created military unit (Troop) to the troop group.
         
         Args:
-            army_unit: The troop to add
+            troop: The troop to add
         """
-        assert not self._production_army.has_unit(army_unit=army_unit), "Unit already in production army"
-        army_unit.set_allegiance(empire=self.allegiance)
-        self._production_army.add_troop(troop=army_unit)
+        assert not self._troop_group.has_unit(mobile_unit=troop), "Unit already in troop group"
+        troop.set_allegiance(empire=self.allegiance)
+        self._troop_group.add_troop(troop=troop)
+    
+    def _add_passive_unit(self, passive_unit: MobileUnit) -> None:
+        """
+        Add a newly created passive unit to the passive unit group.
+        
+        Passive units produce resources or provide other non-combat benefits.
+        They have 0 damage and follow the same movement/location rules as troops.
+        
+        Args:
+            passive_unit: The passive unit to add
+        """
+        assert not self._passive_unit_group.has_unit(mobile_unit=passive_unit), "Unit already in passive unit group"
+        passive_unit.set_allegiance(empire=self.allegiance)
+        self._passive_unit_group.add_mobile_unit(mobile_unit=passive_unit)
 
     def units_of_subclass_active_in_city(self, unit_class: type, minimum_level: int = 0) -> int:
         """
@@ -690,19 +737,48 @@ class City(GameNode, HasAllegianceMixin):
 
         # Apply resource changes (using dynamic values if available)
         self.change_resources(
-            effect.get_city_resources_per_tick(self) * ticks_elapsed * self.expendable_city_resource_factor
+            effect.get_city_resources_per_tick(city=self) * ticks_elapsed * self.expendable_city_resource_factor
         )
 
         # Apply empire resource changes (including knowledge)
         self.change_empire_resources(effect.get_empire_resources_per_tick(self) * ticks_elapsed)
         
-        # Apply morale changes (setter automatically clamps to [0, MAX_MORALE])
-        self._raw_morale += effect.get_raw_morale_per_tick(self) * ticks_elapsed
+        # Apply morale changes
+        self._raw_morale += effect.get_raw_morale_per_tick(city=self) * ticks_elapsed
         
         # Apply efficiency changes (if allegiant to an empire)
-        efficiency_per_tick = effect.get_efficiency_per_tick(self)
-        if efficiency_per_tick != 0.0 and self.allegiance is not None:
-            self.allegiance.add_raw_efficiency(efficiency_per_tick * ticks_elapsed)
+        raw_efficiency_per_tick = effect.get_raw_efficiency_per_tick(city=self)
+        if raw_efficiency_per_tick != 0.0 and self.allegiance is not None:
+            self.allegiance.add_raw_efficiency(raw_efficiency_per_tick * ticks_elapsed)
+
+        # Add new employable people from effect (distributed across age groups)
+        if self.allegiance is not None:
+            new_employable_float = effect.actual_new_employable_per_tick(city=self) * ticks_elapsed
+            new_employable = int(new_employable_float)  # Convert to int for population management
+            
+            if new_employable > 0:
+                # Distribute new employable people across age groups starting from working_age
+                # If not enough people in one age group, move to the next age group (up to retirement_age - 1)
+                remaining_to_add = new_employable
+                age = self.allegiance.working_age
+                retirement_age = self.allegiance.retirement_age
+                
+                while remaining_to_add > 0 and age < retirement_age:
+                    # Get non-employable people in this age group who can become employable
+                    population_in_age = self._societal_resources.population.population_by_age[age]
+                    already_employable = self._societal_resources.population.employable_population_by_age[age]
+                    available = population_in_age - already_employable
+                    
+                    # Add as many as possible from this age group
+                    to_add = min(available, remaining_to_add)
+                    if to_add > 0:
+                        self._societal_resources.population.add_employable_by_age(age, to_add)
+                        remaining_to_add -= to_add
+                    
+                    age += 1
+            
+            # Remove employable status from people who reach retirement age
+            self._societal_resources.population.remove_employable_by_age(self.allegiance.retirement_age, None)
 
     def _apply_all_effects(self) -> None:
         """
@@ -943,7 +1019,7 @@ class City(GameNode, HasAllegianceMixin):
                         assert job_result is not None
                         self._add_building(job_result)
                 elif isinstance(job_result, Troop):
-                    self._add_army_unit(job_result)
+                    self._add_troop(job_result)
 
                 print("Finished job!")
                 self._running_jobs.remove(job)

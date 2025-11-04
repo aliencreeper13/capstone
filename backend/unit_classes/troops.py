@@ -1,10 +1,23 @@
-from ..army import Troop, ArmyAttributes
-from ..data import ExpendableCityResources, ExpendableEmpireResources
-from ..effects import Effect
-from ..job_requirements import ContingentOnInfo, JobRequirements
+"""
+Military troop unit types.
+
+Troops are combat units that deal damage and participate in battles.
+They derive from MobileUnit and can be grouped into MobileUnitGroups (armies).
+"""
+
+from ..entities.army import Troop, ArmyAttributes
+from ..systems.data import ExpendableCityResources
+from ..systems.effects import Effect
+from ..systems.job_requirements import ContingentOnInfo, JobRequirements
 from .buildings import Barracks
 
+
 class Archer(Troop):
+    """
+    A ranged combat troop that deals moderate damage.
+    
+    Archers require a Barracks to be produced and consume ongoing resources.
+    """
     name = "Archer"
     size = 3
     effect = Effect(
@@ -30,5 +43,6 @@ class Archer(Troop):
         damage_per_tick=1
     )
     description = "A good old fashion archer."
+    
     def __init__(self):
         super().__init__()

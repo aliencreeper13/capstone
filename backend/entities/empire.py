@@ -18,6 +18,8 @@ from abc import ABC
 from typing import TYPE_CHECKING, Optional
 from datetime import datetime
 
+from ..systems.government_actions import GovernmentAction
+
 from ..core.constants import HALF_AUTONOMY
 from ..core.gameobject import (
     GameObject,
@@ -27,7 +29,7 @@ from ..core.gameobject import (
 )
 from ..core.exceptions import BadEffect, CapitalExclusiveException
 
-from ..systems.data import ExpendableEmpireResources
+from ..systems.data import ExpendableEmpireResources, ExpendableCityResources
 from ..systems.effects import Effect, EffectWithTicksLeft, UniversalEffect
 from ..systems.game_utils import bounded_stat_from_raw, raw_stat_from_bounded
 
@@ -69,7 +71,7 @@ class Empire(GameObject, HasAllegianceMixin):
         super().__init__()
         assert 0 <= autonomy <= 100, f"Autonomy must be 0-100, got {autonomy}"
         
-        # Empire resources (knowledge, efficiency, stability, etc.)
+        # Empire resources (knowledge, efficiency, etc.)
         self._empire_resources = ExpendableEmpireResources()
 
         # Cities controlled by this empire
@@ -84,6 +86,10 @@ class Empire(GameObject, HasAllegianceMixin):
         # Higher displayed value = faster actions, lower = slower actions
         # Corruption = 100 - efficiency (derived from displayed efficiency)
         self._raw_efficiency: float = 0.0  # Baseline initialization
+
+        #
+        self._working_age: int = 18
+        self._retirement_age: int = 65
 
         # How much independent control cities have (0 = micromanage, 100 = full autonomy)
         self._autonomy = autonomy
@@ -113,6 +119,16 @@ class Empire(GameObject, HasAllegianceMixin):
     def capital(self) -> Optional[City]:
         """The capital city of this empire."""
         return self._capital
+
+    @private_client_property
+    def working_age(self) -> int:
+        """The working age of the empire. This is the age people can begin working (but must be trained prior to working)"""
+        return self._working_age
+
+    @private_client_property
+    def retirement_age(self) -> int:
+        """The retirement age of the empire. This is the age people must retire from working"""
+        return self._retirement_age
     
     @private_client_property
     def knowledge(self) -> float:
@@ -125,8 +141,8 @@ class Empire(GameObject, HasAllegianceMixin):
         Government efficiency rating (0-100 displayed, higher = faster actions).
         
         This is a computed property derived from the unbounded raw_efficiency value.
-        The computation uses a hyperbolic tangent curve to convert raw → displayed.
         """
+        print("raw efficiency", self._raw_efficiency)
         return bounded_stat_from_raw(self._raw_efficiency)
     
     @private_client_property
@@ -332,7 +348,7 @@ class Empire(GameObject, HasAllegianceMixin):
 
     # ========== Government Actions ==========
 
-    def execute_government_action(self, action: "GovernmentAction") -> tuple[bool, str]:
+    def execute_government_action(self, action: GovernmentAction) -> tuple[bool, str]:
         """
         Execute a government action for this empire.
         
