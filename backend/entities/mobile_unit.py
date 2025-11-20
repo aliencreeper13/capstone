@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Optional
 import random
 
 from ..core.constants import HALF_MORALE, MAX_MORALE
-from ..core.gameobject import GameObject
+from ..core.gameobject import GameObject, DataclassGameObject, public_client_property, private_client_property
 from ..core.engine_utils import soft_isinstance
 from ..systems.game_utils import new_value_given_morale
 from ..gameplay.location import Path, PathDirection, GameNode
@@ -31,7 +31,7 @@ if TYPE_CHECKING:
     from .city import City
 
 @dataclass
-class CombatAttributes(GameObject):
+class CombatAttributes(DataclassGameObject):
     """
     Represents the combat attributes of an army or mobile unit.
     
@@ -80,22 +80,22 @@ class MobileUnit(Unit):
         """Set the empire this troop serves."""
         self._allegiance = empire
 
-    @property
+    @public_client_property
     def allegiance(self) -> Optional[Empire]:
         """Get the empire this troop is allegiant to."""
         return self._allegiance
 
-    @property
+    @public_client_property
     def current_attributes(self) -> CombatAttributes:
         """Get current combat attributes (adjusted for morale)."""
         return self._current_attributes
     
-    @property
+    @public_client_property
     def current_morale(self) -> float:
         """Get current morale level."""
         return self._current_attributes.morale
     
-    @property
+    @public_client_property
     def max_attributes(self) -> CombatAttributes:
         """
         Get maximum possible attributes at max morale.
@@ -132,7 +132,7 @@ class MobileUnit(Unit):
         morale_drop = hp_lost_fraction * MAX_MORALE * self._morale_sensitivity
         self._current_attributes.morale = max(0.0, self._current_attributes.morale - morale_drop)
 
-    @property
+    @public_client_property
     def is_dead(self) -> bool:
         """Return True if troop is dead (HP <= 0)."""
         return self._current_attributes.hitpoints <= 0

@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from entities.empire import Empire
 
 
-class client_property(property):
+class client_property(property, ABC):
     """Base class for properties that can be sent to clients."""
     def __init__(self, fget = ..., fset = ..., fdel = ..., doc = ...):
         super().__init__(fget, fset, fdel, doc)
@@ -48,7 +48,8 @@ class GameObject:
                     if isinstance(self, HasAllegianceMixin):
                         if viewer is not None:
                             if viewer.allegiance != self.allegiance:
-                                continue  # skip attribute if private attribute
+                                data[attr_name] = None  # unauthorized access to private property
+                                continue
                 value = getattr(self, attr_name)
 
                 # Recursively serialize GameObjects
@@ -63,6 +64,27 @@ class GameObject:
     def to_client_json(self, viewer: Optional[HasAllegianceMixin]) -> str:
         """Convert game object to JSON for client transmission."""
         return json.dumps(self.to_client_dict(viewer), indent=2)
+
+
+class DataclassGameObject(GameObject):
+    """Mixin for dataclasses to support client serialization."""
+    
+    def to_client_dict(self, viewer: Optional[HasAllegianceMixin]) -> dict[str, Any]:
+        """Unlike an ordinary GameObject, all attributes in dataclasses are public."""
+        data = {}
+        for field in self.__dataclass_fields__.keys():
+            value = getattr(self, field)
+            # ensure no methods get included 
+            if callable(value):
+                continue
+            # Recursively serialize GameObjects
+            if isinstance(value, GameObject):
+                value = value.to_client_dict(viewer)
+            elif isinstance(value, list) and all(isinstance(v, GameObject) for v in value):
+                value = [v.to_client_dict(viewer) for v in value]
+            
+            data[field] = value
+        return data
 
 
 class HasAllegianceMixin(ABC):

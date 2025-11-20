@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from math import ceil
 from typing import TYPE_CHECKING, Optional
 
-from ..core.gameobject import GameObject
+from ..core.gameobject import GameObject, DataclassGameObject
 from .data import ExpendableCityResources
 
 if TYPE_CHECKING:
@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 
 
 @dataclass
-class ContingentOnInfo:
+class ContingentOnInfo(DataclassGameObject):
     """
     Specifies that a job depends on a particular unit type existing at required level.
     
@@ -33,7 +33,7 @@ class ContingentOnInfo:
 
 
 @dataclass
-class JobRequirements(GameObject):
+class JobRequirements(DataclassGameObject):
     """
     Specifies the requirements and costs for a job (building/unit creation or upgrade).
     

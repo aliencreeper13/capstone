@@ -20,6 +20,7 @@ class Archer(Troop):
     """
     name = "Archer"
     size = 3
+    job_num_ticks = 12
     effect = Effect(
         duration_in_ticks=0,
         expendable_city_resources_per_tick=ExpendableCityResources(

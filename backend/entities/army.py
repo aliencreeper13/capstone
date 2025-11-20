@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Optional
 import random
 
 from ..core.constants import HALF_MORALE, MAX_MORALE
-from ..core.gameobject import GameObject
+from ..core.gameobject import GameObject, public_client_property, private_client_property
 from ..core.engine_utils import soft_isinstance
 from ..systems.game_utils import new_value_given_morale
 from ..gameplay.location import Path, PathDirection, GameNode
@@ -148,7 +148,7 @@ class MobileUnitGroup(GameObject):
         """
         self.add_mobile_unit(troop)
     
-    @property
+    @public_client_property
     def current_attributes(self) -> CombatAttributes:
         """
         Get combined attributes of all mobile units in group.
@@ -190,12 +190,12 @@ class MobileUnitGroup(GameObject):
             morale=average_morale
         )
     
-    @property
+    @public_client_property
     def total_damage_per_tick(self) -> float:
         """Get total damage output of group."""
         return self.current_attributes.damage_per_tick
 
-    @property
+    @public_client_property
     def speed(self) -> int:
         """Get group movement speed (slowest unit)."""
         return self.current_attributes.speed
@@ -205,7 +205,7 @@ class MobileUnitGroup(GameObject):
         """Get current game tick from empire."""
         return self._allegiance.current_tick
     
-    @property
+    @public_client_property
     def size(self) -> int:
         """Get total size of all mobile units in group."""
         return sum(unit.size for unit in self._mobile_units)
@@ -214,22 +214,22 @@ class MobileUnitGroup(GameObject):
         """Remove all dead units from group."""
         self._mobile_units = [u for u in self._mobile_units if not u.is_dead]
 
-    @property
+    @public_client_property
     def mobile_units(self) -> list[MobileUnit]:
         """Get list of all mobile units in group."""
         return self._mobile_units
     
-    @property
+    @public_client_property
     def troops(self) -> list[Troop]:
         """Get list of all troops in group (convenience property)."""
         return [u for u in self._mobile_units if isinstance(u, Troop)]
 
-    @property
+    @public_client_property
     def num_units(self) -> int:
         """Get number of mobile units in group."""
         return len(self._mobile_units)
     
-    @property
+    @public_client_property
     def allegiance(self) -> Optional[Empire]:
         """Get empire this group serves."""
         return self._allegiance

@@ -13,7 +13,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Optional
 from time import sleep
 
-from ..core.gameobject import GameObject
+from ..core.gameobject import GameObject, public_client_property
 from .location import GameNode
 
 if TYPE_CHECKING:
@@ -63,6 +63,7 @@ class Game(GameObject):
         self._begun: bool = False
         self._worldmap: WorldMap = worldmap
 
+
     # ========== Tick Management ==========
 
     def next_tick(self) -> None:
@@ -81,7 +82,7 @@ class Game(GameObject):
         # Check for settler settlements on unclaimed nodes
         self._check_settler_settlements()
 
-    @property
+    @public_client_property
     def current_tick(self) -> int:
         """Get the current game tick."""
         return self._current_tick

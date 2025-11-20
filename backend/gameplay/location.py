@@ -15,7 +15,10 @@ from __future__ import annotations
 
 from enum import Enum
 from math import sqrt
+import math
+import random
 from typing import TYPE_CHECKING, Optional
+from pathlib import Path as PathlibPath
 
 from ..core.exceptions import BadGameNodeException
 from ..core.gameobject import GameObject
@@ -24,6 +27,12 @@ if TYPE_CHECKING:
     from ..entities.army import Army, Troop
     from ..entities.empire import Empire
     from ..entities.city import City
+
+try:
+    from PIL import Image, ImageDraw
+    HAS_PIL = True
+except ImportError:
+    HAS_PIL = False
 
 
 class PathDirection(Enum):
@@ -54,6 +63,49 @@ class WorldMap(GameObject):
         self._nodes: list[GameNode] = []
         self._paths: dict[tuple[GameNode, GameNode], Path] = {}
     
+    @staticmethod
+    def _ccw(A: tuple[float, float], B: tuple[float, float], C: tuple[float, float]) -> bool:
+        """
+        Counter-clockwise orientation test for three points.
+        Used in line segment intersection detection.
+        
+        Args:
+            A, B, C: Points as (x, y) tuples
+            
+        Returns:
+            True if points are in counter-clockwise order
+        """
+        return (C[1] - A[1]) * (B[0] - A[0]) > (B[1] - A[1]) * (C[0] - A[0])
+    
+    @staticmethod
+    def _segments_intersect(
+        p1: tuple[float, float], 
+        p2: tuple[float, float], 
+        p3: tuple[float, float], 
+        p4: tuple[float, float]
+    ) -> bool:
+        """
+        Check if line segment p1-p2 intersects with line segment p3-p4.
+        
+        Uses the counter-clockwise orientation method. Returns True if segments
+        intersect (including touching at endpoints).
+        
+        Args:
+            p1, p2: Endpoints of first segment
+            p3, p4: Endpoints of second segment
+            
+        Returns:
+            True if segments intersect
+        """
+        # Check if segments share an endpoint (not considered an intersection)
+        if p1 == p3 or p1 == p4 or p2 == p3 or p2 == p4:
+            return False
+        
+        return (
+            WorldMap._ccw(p1, p3, p4) != WorldMap._ccw(p2, p3, p4) 
+            and WorldMap._ccw(p1, p2, p3) != WorldMap._ccw(p1, p2, p4)
+        )
+    
     def add_node(self, node: GameNode) -> None:
         """
         Add a game node to the map.
@@ -76,6 +128,217 @@ class WorldMap(GameObject):
     def get_nodes(self) -> list[GameNode]:
         """Get all nodes currently on the map."""
         return self._nodes
+
+    def add_path(self, path: Path):
+        """
+        Add a path connecting two game nodes.
+        
+        Args:
+            path: The path to add
+        """
+        key = (path._game_node1, path._game_node2)
+        self._paths[key] = path
+    
+    def get_paths(self) -> dict[tuple[GameNode, GameNode], Path]:
+        """Get all paths on the map."""
+        return self._paths
+    
+    def visualize(self, output_path: str = "worldmap.png", scale: float = 1.0) -> None:
+        """
+        Create a visual representation of the world map.
+        
+        Creates an image with:
+        - Grassy green background
+        - Darker nodes representing cities/settlements
+        - Brown dirt roads connecting nodes
+        
+        Args:
+            output_path: Path where the image will be saved
+            scale: Scaling factor for the map (1.0 = no scaling)
+            
+        Raises:
+            ImportError: If PIL/Pillow is not installed
+        """
+        if not HAS_PIL:
+            raise ImportError(
+                "Pillow is required for map visualization. "
+                "Install it with: pip install Pillow"
+            )
+        
+        width, height = self._size
+        scaled_width = int(width * scale)
+        scaled_height = int(height * scale)
+        
+        # Create image with grass background (medium green)
+        grass_color = (102, 153, 75)  # Medium grass green
+        image = Image.new("RGB", (scaled_width, scaled_height), grass_color)
+        draw = ImageDraw.Draw(image)
+        
+        # Draw paths first (so they're behind nodes)
+        path_color = (160, 130, 80)  # Brown dirt road
+        for (node1, node2) in self._paths.keys():
+            x1, y1 = int(node1.x * scale), int(node1.y * scale)
+            x2, y2 = int(node2.x * scale), int(node2.y * scale)
+            draw.line([(x1, y1), (x2, y2)], fill=path_color, width=max(2, int(3 * scale)))
+        
+        # Draw nodes as circles
+        node_color = (34, 102, 34)  # Darker grass green for nodes
+        for node in self._nodes:
+            # Calculate radius based on node size (assuming circular approximation)
+            radius = max(3, int(math.sqrt(node.size / math.pi) * scale))
+            x, y = int(node.x * scale), int(node.y * scale)
+            
+            # Draw node as filled circle
+            bbox = [x - radius, y - radius, x + radius, y + radius]
+            draw.ellipse(bbox, fill=node_color, outline=(0, 0, 0), width=max(1, int(scale)))
+        
+        # Save the image
+        output_path_obj = PathlibPath(output_path)
+        output_path_obj.parent.mkdir(parents=True, exist_ok=True)
+        image.save(output_path)
+        
+        print(f"Map visualization saved to: {output_path}")
+
+    @classmethod
+    def generate_random_map(
+        cls, 
+        size: tuple[int, int], 
+        num_nodes: int, 
+        min_distance_between_nodes: int,
+        node_sizes: Optional[int | list[int]] = None
+    ) -> "WorldMap":
+        """
+        Generate a random world map of the given size.
+        
+        Ensures that nodes are spaced apart by at least the specified minimum distance,
+        measured edge-to-edge (accounting for node sizes). Paths are created between
+        nodes while preventing path-to-path intersections.
+        
+        Args:
+            size: (width, height) of the map in units
+            num_nodes: Number of nodes to generate
+            min_distance_between_nodes: Minimum edge-to-edge distance between nodes
+            node_sizes: Node size(s). If int, all nodes have that size. If list, must match num_nodes.
+                       If None, defaults to 10 for all nodes.
+        
+        Returns:
+            A new WorldMap with randomly placed nodes and non-intersecting paths
+            connecting each node to up to 3 nearest neighbors
+            
+        Raises:
+            ValueError: If map is too small or nodes cannot be placed without violating constraints
+        """
+        width, height = size
+        world = cls(size)
+
+        # Determine node sizes
+        if node_sizes is None:
+            node_sizes = [10] * num_nodes
+        elif isinstance(node_sizes, int):
+            node_sizes = [node_sizes] * num_nodes
+        elif len(node_sizes) != num_nodes:
+            raise ValueError(f"node_sizes list must have {num_nodes} elements, got {len(node_sizes)}")
+
+        # --- Step 1: Feasibility Check ---
+        area = width * height
+        # For each node, assume circular shape with radius = sqrt(size/π)
+        # Required area includes each node's area plus buffer for minimum edge distances
+        radii = [math.sqrt(node_size / math.pi) for node_size in node_sizes]
+        
+        # Rough feasibility check: ensure total area is reasonable
+        total_node_area = sum(node_sizes)
+        min_required_area = total_node_area + num_nodes * (min_distance_between_nodes ** 2)
+        if min_required_area > area * 2:  # 2x multiplier for reasonable spacing
+            raise ValueError(
+                f"World of size {size} (area={area}) is too small to fit {num_nodes} nodes "
+                f"with minimum edge distance {min_distance_between_nodes}."
+            )
+
+        # --- Step 2: Generate Random, Spaced Coordinates ---
+        coords_list: list[tuple[int, int]] = []
+        max_attempts = 10000
+        attempts = 0
+        while len(coords_list) < num_nodes and attempts < max_attempts:
+            x = random.randint(0, width)
+            y = random.randint(0, height)
+            candidate = (x, y)
+
+            # Check distance constraint (edge-to-edge)
+            valid = True
+            for i, existing in enumerate(coords_list):
+                # Distance between centers minus the sum of radii gives edge-to-edge distance
+                center_distance = math.dist(candidate, existing)
+                edge_distance = center_distance - radii[len(coords_list)] - radii[i]
+                
+                if edge_distance < min_distance_between_nodes:
+                    valid = False
+                    break
+            
+            if valid:
+                coords_list.append(candidate)
+            
+            attempts += 1
+
+        if len(coords_list) < num_nodes:
+            raise ValueError(
+                f"Failed to place all {num_nodes} nodes after {max_attempts} attempts. "
+                f"Only placed {len(coords_list)} nodes. Try reducing num_nodes, "
+                f"increasing map size, or decreasing min_distance_between_nodes."
+            )
+
+        # --- Step 3: Create Nodes ---
+        nodes = [GameNode(coords, node_sizes[i]) for i, coords in enumerate(coords_list)]
+        for node in nodes:
+            world.add_node(node)
+
+        # --- Step 4: Connect Nodes Without Path Intersection ---
+        # Connect each node to its N nearest neighbors (at least one)
+        # while preventing paths from crossing each other
+        neighbor_count = min(3, num_nodes - 1)
+        for node in nodes:
+            distances = sorted(
+                [(GameNode.distance(node, other), other) for other in nodes if other is not node],
+                key=lambda x: x[0],
+            )
+            
+            # Try to connect to nearest neighbors, skipping if path would intersect
+            connections_made = 0
+            for _, neighbor in distances:
+                if connections_made >= neighbor_count:
+                    break
+                
+                # Check if path already exists (in either direction)
+                path_key_forward = (node, neighbor)
+                path_key_backward = (neighbor, node)
+                if path_key_forward in world._paths or path_key_backward in world._paths:
+                    connections_made += 1
+                    continue
+                
+                # Check if this new path would intersect with any existing path
+                new_path_start = node.coords
+                new_path_end = neighbor.coords
+                intersects = False
+                
+                for (existing_node1, existing_node2) in world._paths.keys():
+                    existing_path_start = existing_node1.coords
+                    existing_path_end = existing_node2.coords
+                    
+                    if cls._segments_intersect(
+                        new_path_start, 
+                        new_path_end, 
+                        existing_path_start, 
+                        existing_path_end
+                    ):
+                        intersects = True
+                        break
+                
+                # Only add path if it doesn't intersect
+                if not intersects:
+                    path = Path(node, neighbor)
+                    world.add_path(path)
+                    connections_made += 1
+
+        return world
 
 
 class Path(GameObject):
@@ -310,7 +573,9 @@ class GameNode(GameObject):
                 if isinstance(unit, Settler):
                     settler_count += 1
         return settler_count
-    
+    @property
+    def size(self) -> int:
+        return self._size
     @staticmethod
     def distance(game_node1: GameNode, game_node2: GameNode) -> float:
         """

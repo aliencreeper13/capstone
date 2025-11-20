@@ -26,7 +26,7 @@ from backend.entities.ideology import (
     Dictatorship, Anarchy, Socialism, Theocracy
 )
 from backend.entities.building import Building
-from backend.gameplay.location import WorldMap
+from backend.gameplay.location import WorldMap, GameNode
 from backend.gameplay.game import Game
 from backend.gameplay.events import GameEvent
 from backend.systems.data import ExpendableCityResources, ExpendableEmpireResources
@@ -38,103 +38,7 @@ from backend.systems.job_requirements import JobRequirements
 # ============================================================================
 # BUILDING DEFINITIONS
 # ============================================================================
-
-class Farm(Building):
-    """Produces food"""
-    name = "Farm"
-    size = 1
-    effect = Effect(duration_in_ticks=0, expendable_city_resources_per_tick=ExpendableCityResources(food=1))
-    job_requirements = JobRequirements(expendable_city_resources_level1=ExpendableCityResources(wealth=1, timber=1), workers_needed_level1=1)
-    description = "Produces 1 food per tick"
-
-class Market(Building):
-    """Produces wealth"""
-    name = "Market"
-    size = 3
-    effect = Effect(duration_in_ticks=0, expendable_city_resources_per_tick=ExpendableCityResources(wealth=10))
-    job_requirements = JobRequirements(expendable_city_resources_level1=ExpendableCityResources(wealth=1, timber=2), workers_needed_level1=3)
-    description = "Produces 10 wealth per tick"
-
-class School(Building):
-    """Produces knowledge and morale"""
-    name = "School"
-    size = 1
-    effect = Effect(duration_in_ticks=0, expendable_empire_resources_per_tick=ExpendableEmpireResources(knowledge=1), raw_morale_per_tick=0.1)
-    job_requirements = JobRequirements(expendable_city_resources_level1=ExpendableCityResources(wealth=2), workers_needed_level1=1)
-    description = "Produces knowledge and morale"
-
-class WoodcuttersCamp(Building):
-    """Produces timber"""
-    name = "WoodcuttersCamp"
-    size = 3
-    effect = Effect(duration_in_ticks=0, expendable_city_resources_per_tick=ExpendableCityResources(timber=1))
-    job_requirements = JobRequirements(expendable_city_resources_level1=ExpendableCityResources(wealth=1, food=1), workers_needed_level1=1)
-    description = "Produces 1 timber per tick"
-
-class Mine(Building):
-    """Produces metal"""
-    name = "Mine"
-    size = 1
-    effect = Effect(duration_in_ticks=0, expendable_city_resources_per_tick=ExpendableCityResources(metal=1))
-    job_requirements = JobRequirements(expendable_city_resources_level1=ExpendableCityResources(wealth=2), workers_needed_level1=1)
-    description = "Produces 1 metal per tick"
-
-class Library(Building):
-    """Increases morale"""
-    name = "Library"
-    size = 1
-    effect = Effect(duration_in_ticks=0, raw_morale_per_tick=0.025)
-    job_requirements = JobRequirements(expendable_city_resources_level1=ExpendableCityResources(wealth=1, timber=10), workers_needed_level1=2)
-    description = "Provides morale bonus"
-
-class Temple(Building):
-    """Increases morale"""
-    name = "Temple"
-    size = 1
-    effect = Effect(duration_in_ticks=0, raw_morale_per_tick=0.025)
-    job_requirements = JobRequirements(expendable_city_resources_level1=ExpendableCityResources(wealth=1, timber=10), workers_needed_level1=2)
-    description = "Provides morale bonus"
-
-class Housing(Building):
-    """Increases population capacity"""
-    name = "Housing"
-    size = 2
-    effect = Effect(duration_in_ticks=0, population_capacity_offered=100)
-    job_requirements = JobRequirements(expendable_city_resources_level1=ExpendableCityResources(wealth=1, timber=1, food=1, metal=1), workers_needed_level1=2)
-    description = "Increases population capacity by 100"
-
-class Granary(Building):
-    """Increases food storage"""
-    name = "Granary"
-    size = 3
-    effect = Effect(duration_in_ticks=0, expendable_city_resource_capacities_offered=ExpendableCityResources(food=100))
-    job_requirements = JobRequirements(expendable_city_resources_level1=ExpendableCityResources(wealth=10, timber=50), workers_needed_level1=3)
-    description = "Adds 100 food storage"
-
-class LumberYard(Building):
-    """Increases timber storage"""
-    name = "LumberYard"
-    size = 3
-    effect = Effect(duration_in_ticks=0, expendable_city_resource_capacities_offered=ExpendableCityResources(timber=100))
-    job_requirements = JobRequirements(expendable_city_resources_level1=ExpendableCityResources(wealth=10, food=50), workers_needed_level1=3)
-    description = "Adds 100 timber storage"
-
-class University(Building):
-    """Produces lots of knowledge"""
-    name = "University"
-    size = 4
-    effect = Effect(duration_in_ticks=0, expendable_empire_resources_per_tick=ExpendableEmpireResources(knowledge=100))
-    job_requirements = JobRequirements(expendable_city_resources_level1=ExpendableCityResources(wealth=200), workers_needed_level1=1)
-    description = "Produces 100 knowledge per tick"
-
-class Hospital(Building):
-    """Increases morale and lifespan"""
-    name = "Hospital"
-    size = 4
-    effect = Effect(duration_in_ticks=0, raw_morale_per_tick=0.05, max_lifespan_increase=10)
-    job_requirements = JobRequirements(expendable_city_resources_level1=ExpendableCityResources(wealth=1, timber=10), workers_needed_level1=2)
-    description = "Provides morale bonus and increases lifespan"
-
+from backend.unit_classes.buildings import *
 
 # ============================================================================
 # GAME SETUP
@@ -234,7 +138,7 @@ def create_game(empire_name: str, city_name: str, ideology_choice: str) -> tuple
     
     # Create capital city
     print(f"[*] Creating capital city: {city_name}...")
-    capital = City((0, 0), size=50)
+    capital = City(GameNode((0, 0), size=50), size=50)
     capital._resources.wealth = 50
     capital._resources.food = 50
     capital._resources.timber = 30
@@ -494,7 +398,7 @@ class InteractiveGame:
             
             # Start construction
             try:
-                job = CreationJob(num_ticks=5, result=building)
+                job = CreationJob(result=building)
                 success, message, failures = self.city.add_job(job)
                 
                 # Display result with formatted message
@@ -508,7 +412,8 @@ class InteractiveGame:
                             print(f"    - {reason}")
                 else:
                     # Job started successfully, show resource consumption
-                    print(f"  Duration: 5 ticks")
+                    duration = building.job_num_ticks
+                    print(f"  Duration: {duration} ticks")
                     print(f"  Resources consumed: W={cost.wealth:.1f}, T={cost.timber:.1f}, M={cost.metal:.1f}, F={cost.food:.1f}")
                 
                 return

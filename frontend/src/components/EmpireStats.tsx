@@ -33,7 +33,7 @@ const EmpireStats: React.FC<Props> = ({ empire, currentTick }) => {
 
         <div className="info-card">
           <div className="info-label">Cities</div>
-          <div className="info-value">{empire.cities.length}</div>
+          <div className="info-value">{empire.cities?.length ?? 1}</div>
         </div>
 
         <div className="info-card">

@@ -43,14 +43,14 @@ export interface CityData {
   hitpoints: number;
   max_hitpoints: number;
   buildings: Building[];
-  armies: Army[];
+  armies?: Army[]; // Optional: not currently provided by backend
   space_used: number;
   space_total: number;
 }
 
 export interface EmpireData {
   name: string;
-  cities: CityData[];
+  cities?: CityData[]; // Optional: not currently provided by backend (single city per empire)
   total_population: Population;
   total_resources: Resources;
   knowledge: number;

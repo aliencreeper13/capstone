@@ -7,6 +7,26 @@ import { GameState } from "../types/gameState";
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:8000";
 
+export interface BuildingRequirements {
+  resources: Record<string, number>;
+  workers: number;
+  knowledge: number | null;
+}
+
+export interface AvailableBuilding {
+  name: string;
+  size: number;
+  description: string;
+  job_num_ticks: number;
+  requirements: BuildingRequirements;
+}
+
+export interface ApiResponse<T = any> {
+  status: string;
+  message?: string;
+  data?: T;
+}
+
 export class GameApiService {
   /**
    * Fetch the current game state
@@ -42,6 +62,75 @@ export class GameApiService {
 
     // Return unsubscribe function
     return () => clearInterval(interval);
+  }
+
+  /**
+   * Create a new building in the capital city
+   */
+  static async createBuilding(buildingType: string): Promise<ApiResponse> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/building/create`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ building_type: buildingType }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || `Failed to create building: ${response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error("Failed to create building:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Demolish a building
+   */
+  static async demolishBuilding(buildingId: string): Promise<ApiResponse> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/building/action`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ building_id: buildingId, action: "demolish" }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || "Failed to demolish building");
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error("Failed to demolish building:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get available building types
+   */
+  static async getAvailableBuildings(): Promise<AvailableBuilding[]> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/buildings/available`);
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch buildings: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return data.buildings || [];
+    } catch (error) {
+      console.error("Failed to fetch available buildings:", error);
+      throw error;
+    }
   }
 
   /**

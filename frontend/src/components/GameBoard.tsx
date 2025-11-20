@@ -3,13 +3,14 @@
  * Main container that displays the entire game state
  */
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { GameState } from "../types/gameState";
 import { GameApiService } from "../services/gameApi";
 import EmpireStats from "./EmpireStats";
 import CityStats from "./CityStats";
-import BuildingsList from "./BuildingsList";
+import BuildingManager from "./BuildingManager";
 import ArmiesList from "./ArmiesList";
+import CitySwitcher from "./CitySwitcher";
 import "./styles/GameBoard.css";
 
 interface Props {
@@ -17,11 +18,13 @@ interface Props {
   useMockData?: boolean;
 }
 
-const GameBoard: React.FC<Props> = ({ pollInterval = 2000, useMockData = false }) => {
+const GameBoard: React.FC<Props> = ({ pollInterval = 1000, useMockData = false }) => {
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
+  const [needsRefresh, setNeedsRefresh] = useState(false);
+  const unsubscribeRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     const fetchInitialState = async () => {
@@ -33,11 +36,14 @@ const GameBoard: React.FC<Props> = ({ pollInterval = 2000, useMockData = false }
         setGameState(state);
         setLastUpdate(new Date());
         setError(null);
+        setNeedsRefresh(false);
       } catch (err) {
         console.error("Failed to fetch game state:", err);
-        setError("Failed to load game state. Using mock data...");
-        // Fall back to mock data on error
-        setGameState(GameApiService.getMockGameState());
+        setError("Failed to load game state. Check that backend is running on http://localhost:8000");
+        if (!useMockData) {
+          // Fall back to mock data on error
+          setGameState(GameApiService.getMockGameState());
+        }
       } finally {
         setLoading(false);
       }
@@ -46,17 +52,43 @@ const GameBoard: React.FC<Props> = ({ pollInterval = 2000, useMockData = false }
     fetchInitialState();
 
     // Set up polling
-    const unsubscribe = GameApiService.subscribeToGameState(
+    unsubscribeRef.current = GameApiService.subscribeToGameState(
       (state) => {
         setGameState(state);
         setLastUpdate(new Date());
         setError(null);
+        setNeedsRefresh(false);
       },
       pollInterval
     );
 
-    return unsubscribe;
+    return () => {
+      if (unsubscribeRef.current) {
+        unsubscribeRef.current();
+      }
+    };
   }, [pollInterval, useMockData]);
+
+  // Handle building operations
+  const handleBuildingCreated = () => {
+    setNeedsRefresh(true);
+    // Fetch immediately instead of waiting for next poll
+    GameApiService.getGameState().then((state) => {
+      setGameState(state);
+      setLastUpdate(new Date());
+      setError(null);
+    }).catch(err => console.error("Failed to refresh after building creation:", err));
+  };
+
+  const handleBuildingDemolished = () => {
+    setNeedsRefresh(true);
+    // Fetch immediately instead of waiting for next poll
+    GameApiService.getGameState().then((state) => {
+      setGameState(state);
+      setLastUpdate(new Date());
+      setError(null);
+    }).catch(err => console.error("Failed to refresh after building demolition:", err));
+  };
 
   if (loading && !gameState) {
     return (
@@ -91,9 +123,14 @@ const GameBoard: React.FC<Props> = ({ pollInterval = 2000, useMockData = false }
       )}
 
       <div className="board-container">
-        {/* Left Sidebar: Empire Stats */}
+        {/* Left Sidebar: Empire Stats & City Switcher */}
         <aside className="sidebar-left">
-          <EmpireStats empire={empire} currentTick={current_tick} />
+          <div className="sidebar-section">
+            <EmpireStats empire={empire} currentTick={current_tick} />
+          </div>
+          <div className="sidebar-section">
+            <CitySwitcher onCitySelected={handleBuildingCreated} />
+          </div>
         </aside>
 
         {/* Main Content: City View */}
@@ -109,7 +146,11 @@ const GameBoard: React.FC<Props> = ({ pollInterval = 2000, useMockData = false }
               <div className="contents-grid">
                 {/* Buildings */}
                 <div className="contents-panel">
-                  <BuildingsList buildings={selected_city.buildings} />
+                  <BuildingManager 
+                    buildings={selected_city.buildings}
+                    onBuildingCreated={handleBuildingCreated}
+                    onBuildingDemolished={handleBuildingDemolished}
+                  />
                 </div>
 
                 {/* Armies */}

@@ -1,0 +1,19 @@
+# Additional requirements for database persistence
+
+# Core database ORM
+SQLAlchemy>=2.0.0
+
+# PostgreSQL driver
+psycopg2-binary>=2.9.0
+
+# Database migrations
+alembic>=1.11.0
+
+# Environment variable management
+python-dotenv>=1.0.0
+
+# Optional: for connection pooling insights
+greenlet>=2.0.0
+
+# Note: These should be added to your existing requirements.txt
+# The versions shown are minimum versions; newer versions are typically fine

@@ -21,6 +21,7 @@ from math import ceil
 from typing import TYPE_CHECKING, Optional
 from queue import Queue
 from datetime import datetime
+from random import random
 
 from ..core.constants import (
     AUTOMATIC_FOOD_CONSUMPTION_EFFECT_ID,
@@ -99,7 +100,7 @@ class City(GameObject, HasAllegianceMixin):
             morale: Initial morale (0-100, default 50)
         """
         super().__init__()
-        
+        # print("Gamenode", gamenode)
         if size > gamenode.size:
             raise ValueError(f"City size ({size}) cannot exceed GameNode size ({gamenode.size})")
         
@@ -804,34 +805,7 @@ class City(GameObject, HasAllegianceMixin):
             del self._effects_with_ticks_left[i]
 
     # ========== Jobs ==========
-
-    def add_job(self, job: Job) -> tuple[bool, str, list[str]]:
-        """
-        Add a job to the city's queue if requirements are met.
-        
-        Checks that:
-        - Required units are active
-        - Required resources are available
-        - Enough workers are available
-        
-        All requirements are checked (not just the first failure), allowing
-        comprehensive error reporting.
-        
-        Args:
-            job: The job to add
-            
-        Returns:
-            Tuple of (success: bool, message: str, failures: list[str])
-            - success: True if job was added, False otherwise
-            - message: User-friendly description of result
-            - failures: List of requirement failures (empty if success)
-            
-        Raises:
-            RequirementsException: Only for backwards compatibility if called with exception handling
-        """
-        from ..gameplay.events import GameEvent
-        
-        def check_requirements(job: Job) -> tuple[bool, list[str]]:
+    def check_requirements(self, job: Job) -> tuple[bool, list[str]]:
             """
             Check all job requirements and collect any failures.
             
@@ -878,9 +852,36 @@ class City(GameObject, HasAllegianceMixin):
                 failures.append(f"Need {workers_needed} workers, have {self.employable_population}")
             
             return len(failures) == 0, failures
+    def add_job(self, job: Job) -> tuple[bool, str, list[str]]:
+        """
+        Add a job to the city's queue if requirements are met.
+        
+        Checks that:
+        - Required units are active
+        - Required resources are available
+        - Enough workers are available
+        
+        All requirements are checked (not just the first failure), allowing
+        comprehensive error reporting.
+        
+        Args:
+            job: The job to add
+            
+        Returns:
+            Tuple of (success: bool, message: str, failures: list[str])
+            - success: True if job was added, False otherwise
+            - message: User-friendly description of result
+            - failures: List of requirement failures (empty if success)
+            
+        Raises:
+            RequirementsException: Only for backwards compatibility if called with exception handling
+        """
+        from ..gameplay.events import GameEvent
+        
+        
 
         # Check all requirements
-        requirements_met, failures = check_requirements(job)
+        requirements_met, failures = self.check_requirements(job)
         
         # Record game event
         if self.allegiance is not None:
@@ -895,7 +896,7 @@ class City(GameObject, HasAllegianceMixin):
                 
                 event = GameEvent(
                     type="custom",
-                    timestamp=datetime.now(),
+                    unix_timestamp=int(datetime.now().timestamp()),
                     source="City",
                     description=f"Job started in {self.name}: {job_name}",
                     data={"city_name": self.name, "job_type": job_name, "status": "started"}
@@ -905,7 +906,7 @@ class City(GameObject, HasAllegianceMixin):
                 # Job failed due to missing requirements
                 event = GameEvent(
                     type="custom",
-                    timestamp=datetime.now(),
+                    unix_timestamp=int(datetime.now().timestamp()),
                     source="City",
                     description=f"Job submission failed in {self.name}: {', '.join(failures)}",
                     data={
@@ -930,6 +931,132 @@ class City(GameObject, HasAllegianceMixin):
                 message = f"✗ Cannot start job: {', '.join(failures)}"
         
         return requirements_met, message, failures
+    def _AI_add_random_job(self, can_submit_destruction_jobs: bool = False) -> None:
+        """
+        AI adds a random job, if there are enough requirements, to the city.
+        AI can submit creation jobs, upgrade jobs, and destruction jobs if allowed.
+        If no such job can be added, the function returns without adding anything.
+        For now, can only add one job per call.
+        For now, can only add BUILDING jobs.
+        Args: 
+            can_submit_destruction_jobs: If True, AI can submit destruction jobs.
+        """
+        from ..systems.job import CreationJob, UpgradeJob, DestructionJob
+        from ..unit_classes import buildings
+        import inspect
+        
+        job_type_attempts = []
+        
+        if can_submit_destruction_jobs:
+            weights = [48, 48, 4]
+            job_types = ['creation', 'upgrade', 'destruction']
+        else:
+            weights = [50, 50]
+            job_types = ['creation', 'upgrade']
+        
+        total_weight = sum(weights)
+        rand = random() * total_weight
+        cumulative = 0
+        primary_job_type = None
+        
+        for job_type, weight in zip(job_types, weights):
+            cumulative += weight
+            if rand < cumulative:
+                primary_job_type = job_type
+                break
+        
+        job_type_attempts.append(primary_job_type)
+        
+        for job_type in job_types:
+            if job_type != primary_job_type:
+                job_type_attempts.append(job_type)
+        
+        for job_type in job_type_attempts:
+            if job_type == 'creation':
+                if self._try_add_creation_job(buildings):
+                    return
+            
+            elif job_type == 'upgrade':
+                if self._try_add_upgrade_job():
+                    return
+            
+            elif job_type == 'destruction':
+                if self._try_add_destruction_job():
+                    return
+    
+    def _try_add_creation_job(self, buildings_module) -> bool:
+        """
+        Try to add a creation job for a random building class.
+        Returns True if a job was successfully added, False otherwise.
+        """
+        from random import shuffle
+        from ..systems.job import CreationJob
+        import inspect
+        
+        building_classes = [
+            cls for name, cls in inspect.getmembers(buildings_module, inspect.isclass)
+            if issubclass(cls, buildings_module.Building) and cls is not buildings_module.Building
+        ]
+        
+        shuffle(building_classes)
+        
+        for building_class in building_classes:
+            job = CreationJob(building_class)
+            requirements_met, failures = self.check_requirements(job)
+            
+            if requirements_met:
+                success, message, _ = self.add_job(job)
+                return success
+        
+        return False
+    
+    def _try_add_upgrade_job(self) -> bool:
+        """
+        Try to add an upgrade job for a random instantiated building.
+        Returns True if a job was successfully added, False otherwise.
+        """
+        from random import shuffle
+        from ..systems.job import UpgradeJob
+        
+        if not self._buildings:
+            return False
+        
+        shuffled_buildings = self._buildings.copy()
+        shuffle(shuffled_buildings)
+        
+        for building in shuffled_buildings:
+            job = UpgradeJob(building)
+            requirements_met, failures = self.check_requirements(job)
+            
+            if requirements_met:
+                success, message, _ = self.add_job(job)
+                return success
+        
+        return False
+    
+    def _try_add_destruction_job(self) -> bool:
+        """
+        Try to add a destruction job for a random instantiated building.
+        Returns True if a job was successfully added, False otherwise.
+        """
+        from random import shuffle
+        from ..systems.job import DestructionJob
+        
+        if not self._buildings:
+            return False
+        
+        shuffled_buildings = self._buildings.copy()
+        shuffle(shuffled_buildings)
+        
+        for building in shuffled_buildings:
+            job = DestructionJob(building)
+            requirements_met, failures = self.check_requirements(job)
+            
+            if requirements_met:
+                success, message, _ = self.add_job(job)
+                return success
+        
+        return False
 
     def take_damage(self, dmg: float, attacker: Empire) -> None:
         """
@@ -1029,6 +1156,15 @@ class City(GameObject, HasAllegianceMixin):
                 self._lay_off_workers(job.requirements.workers_needed(level=job.level_upon_completion))
                 
                 print("Buildings:", self._buildings)
+
+        # ===== AI JOB ADDITION =====
+        if self.allegiance is not None and self.autonomy is not None:
+            from ..systems.game_utils import probability_ai_adds_job
+            
+            prob = probability_ai_adds_job(self.autonomy)
+            if random() < prob:
+                can_destroy = False
+                self._AI_add_random_job(can_submit_destruction_jobs=can_destroy)
 
         # ===== RESOURCE CONSUMPTION & EFFECTS =====
         # Baseline morale degradation (natural baseline that effects balance out)

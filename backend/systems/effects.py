@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from math import ceil, floor
 from typing import TYPE_CHECKING, Optional, Callable
 
-from ..core.gameobject import GameObject
+from ..core.gameobject import GameObject, DataclassGameObject
 from .data import ExpendableCityResources, ExpendableEmpireResources
 
 if TYPE_CHECKING:
@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 
 
 @dataclass
-class Effect(GameObject):
+class Effect(DataclassGameObject):
     """
     Represents a game impact that can be applied to cities each tick.
     
@@ -214,6 +214,101 @@ class Effect(GameObject):
         if self.dynamic_job_speedup_multiplier is not None:
             return self.dynamic_job_speedup_multiplier(city)
         return self.job_speedup_multiplier
+
+    def get_upgraded(self, upgrade_bonus: float) -> Effect:
+        """
+        Return a new Effect scaled by the given upgrade bonus.
+        
+        Args:
+            upgrade_bonus: Multiplier to scale effect values by
+            
+        Returns:
+            New Effect instance with scaled values
+        """
+        upgrade_factor = 1 + upgrade_bonus
+        return Effect(
+            duration_in_ticks=self.duration_in_ticks,
+            expendable_city_resources_per_tick=self.expendable_city_resources_per_tick * upgrade_factor,
+            expendable_empire_resources_per_tick=self.expendable_empire_resources_per_tick * upgrade_factor,
+            expendable_city_resources_pct_increase=self.expendable_city_resources_pct_increase * upgrade_factor,
+            expendable_empire_resources_pct_increase=self.expendable_empire_resources_pct_increase * upgrade_factor,
+            theoretical_new_employable_per_tick=self.theoretical_new_employable_per_tick * upgrade_factor,
+            raw_morale_per_tick=self.raw_morale_per_tick * upgrade_factor,
+            raw_efficiency_per_tick=self.raw_efficiency_per_tick * upgrade_factor,
+            city_base_defense_offered=int(self.city_base_defense_offered * upgrade_factor),
+            city_base_protection_offered=int(self.city_base_protection_offered * upgrade_factor),
+            city_hitpoint_regeneration_per_tick=int(self.city_hitpoint_regeneration_per_tick * upgrade_factor),
+            expendable_city_resource_capacities_offered=self.expendable_city_resource_capacities_offered * upgrade_factor,
+            population_capacity_offered=int(self.population_capacity_offered * upgrade_factor),
+            new_people_per_tick=int(self.new_people_per_tick * upgrade_factor),
+            dead_people_per_tick=int(self.dead_people_per_tick * upgrade_factor),
+            max_lifespan_increase=int(self.max_lifespan_increase * upgrade_factor),
+            capital_effect=self.capital_effect,
+            specific_units_contingent_on=self.specific_units_contingent_on.copy(),
+            job_speedup_multiplier=self.job_speedup_multiplier * upgrade_factor,
+            contingency_check=self.contingency_check,
+            dynamic_expendable_city_resources_per_tick=lambda city: self.dynamic_expendable_city_resources_per_tick(city) * upgrade_factor,
+            dynamic_expendable_tempire_resources_per_tick=lambda city: self.dynamic_expendable_city_resources_per_tick(city) * upgrade_factor,
+            dynamic_theoretical_new_employable_per_tick=lambda city: self.dynamic_theoretical_new_employable_per_tick(city) * upgrade_factor,
+            dynamic_morale_per_tick=lambda city: self.dynamic_morale_per_tick(city) * upgrade_factor,
+            dynamic_raw_efficiency_per_tick=lambda city: self.dynamic_raw_efficiency_per_tick(city) * upgrade_factor,
+            dynamic_city_hitpoint_regeneration_per_tick=lambda city: self.dynamic_city_hitpoint_regeneration_per_tick(city) * upgrade_factor,
+            )
+
+    def __repr__(self):
+        from dataclasses import fields
+        
+        non_empty_fields = []
+        
+        for field_obj in fields(self):
+            name = field_obj.name
+            value = getattr(self, name)
+            
+            # Check if value is "empty"
+            is_empty = False
+            
+            if value is None:
+                is_empty = True
+            elif isinstance(value, bool):
+                # For booleans, empty means False
+                if value is False:
+                    is_empty = True
+            elif isinstance(value, (int, float)):
+                # For numbers, empty means 0
+                if value == 0:
+                    is_empty = True
+                # job_speedup_multiplier is empty if it's 1.0 (default)
+                elif name == "job_speedup_multiplier" and value == 1.0:
+                    is_empty = True
+            elif isinstance(value, list):
+                # Empty lists are empty
+                if len(value) == 0:
+                    is_empty = True
+            elif isinstance(value, dict):
+                # Empty dicts are empty
+                if len(value) == 0:
+                    is_empty = True
+            elif callable(value):
+                # Callables are never empty if they're not None (already checked)
+                pass
+            else:
+                # For other objects (like resource dataclasses), check if empty
+                try:
+                    default_instance = type(value)()
+                    if value.__dict__ == default_instance.__dict__:
+                        is_empty = True
+                except:
+                    # If we can't create a default instance, assume it's not empty
+                    pass
+            
+            if not is_empty:
+                non_empty_fields.append(f"{name}={value!r}")
+        
+        if not non_empty_fields:
+            return f"{self.__class__.__name__}()"
+        
+        return f"{self.__class__.__name__}({', '.join(non_empty_fields)})"
+        
 
 
 class UniversalEffect(Effect):

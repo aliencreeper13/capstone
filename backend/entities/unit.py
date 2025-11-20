@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from abc import ABC, abstractmethod
 
 from ..core.constants import DESTRUCTION_WEALTH_COST_PER_UNIT_SIZE
-from ..core.gameobject import GameObject
+from ..core.gameobject import GameObject, DataclassGameObject
 from ..systems.data import ExpendableCityResources
 from ..systems.effects import Effect
 from ..systems.job_requirements import HasJobRequirementsMixin, JobRequirements
@@ -40,6 +40,7 @@ class Unit(GameObject, HasJobRequirementsMixin, ABC):
         effect: Passive effect when unit is active
         job_requirements: Requirements for creating new units
         description: Flavor text describing the unit
+        job_num_ticks: Number of ticks for job creation, upgrade, or destruction
     
     Instance attributes:
         _level: Current upgrade level (starts at 1)
@@ -53,6 +54,7 @@ class Unit(GameObject, HasJobRequirementsMixin, ABC):
     effect: Effect
     job_requirements: JobRequirements
     description: str
+    job_num_ticks: int
     
     def __init__(self, *args, **kwargs):
         """Initialize a unit at level 1, inactive."""
@@ -126,17 +128,7 @@ class Unit(GameObject, HasJobRequirementsMixin, ABC):
             upgrade_bonus = (self._level - 1) * 0.20
             
             # Scale the base effect by the upgrade bonus
-            upgrade_effect = Effect(
-                duration_in_ticks=0,  # Indefinite
-                expendable_city_resources_per_tick=self.effect.expendable_city_resources_per_tick * upgrade_bonus,
-                expendable_city_resource_capacities_offered=self.effect.expendable_city_resource_capacities_offered * upgrade_bonus,
-                raw_morale_per_tick=self.effect.raw_morale_per_tick * upgrade_bonus,
-                city_base_defense_offered=self.effect.city_base_defense_offered * upgrade_bonus,
-                city_base_protection_offered=self.effect.city_base_protection_offered * upgrade_bonus,
-                raw_efficiency_per_tick=self.effect.raw_efficiency_per_tick * upgrade_bonus,
-                # Use a special effect ID that ties this upgrade to this specific unit instance
-                effect_id=hash(f"upgrade_{id(self)}")
-            )
+            upgrade_effect = self.effect.upgraded_effect(upgrade_bonus=upgrade_bonus)
             
             # Add the upgrade effect to the city (replaces any previous upgrade for this unit)
             self._city.add_effect(upgrade_effect)

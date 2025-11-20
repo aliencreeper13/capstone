@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from ..systems.data import ExpendableCityResources, ExpendableEmpireResources
 from ..systems.effects import Effect, UniversalEffect
-from ..core.gameobject import GameObject
+from ..core.gameobject import GameObject, DataclassGameObject, public_client_property
 from ..core.constants import (FOOD_CONSUMPTION_SENSITIVITY, AUTOMATIC_FOOD_CONSUMPTION_EFFECT_ID, 
                               LACK_OF_FOOD_MORALE_PENALTY, MORALE_DEPLETION_DUE_TO_HUNGER_EFFECT_ID)
 
@@ -41,7 +41,7 @@ class Ideology(GameObject):
         self._autonomy = autonomy  # Autonomy level (0-100) for cities under this ideology
 
 
-    @property
+    @public_client_property
     def effects(self) -> list[Effect]:
         """Get all effects (neutral + specific) for this ideology."""
         return self._neutral_effects + self._ideological_specific_effects

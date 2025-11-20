@@ -7,6 +7,7 @@ from ..systems.job_requirements import JobRequirements
 class Market(Building):
     name = "Market"
     size = 3
+    job_num_ticks = 10
     effect = Effect(
         duration_in_ticks=0,
         expendable_city_resources_per_tick=ExpendableCityResources(
@@ -25,6 +26,7 @@ class Market(Building):
 class Farm(Building):
     name = "Farm"
     size = 1
+    job_num_ticks = 5
     effect = Effect(
         duration_in_ticks=0,
         expendable_city_resources_per_tick=ExpendableCityResources(
@@ -43,6 +45,7 @@ class Farm(Building):
 class Granary(Building):
     name = "Granary"
     size = 3
+    job_num_ticks = 15
     effect = Effect(
         duration_in_ticks=0,
         expendable_city_resource_capacities_offered=ExpendableCityResources(
@@ -62,6 +65,7 @@ class Granary(Building):
 class WoodcuttersCamp(Building):
     name = "Woodcutter's Camp"
     size = 3
+    job_num_ticks = 8
     effect = Effect(
         duration_in_ticks=0,
         expendable_city_resources_per_tick=ExpendableCityResources(
@@ -80,6 +84,7 @@ class WoodcuttersCamp(Building):
 class LumberYard(Building):
     name = "Lumber Yard"
     size = 3
+    job_num_ticks = 15
     effect = Effect(
         duration_in_ticks=0,
         expendable_city_resource_capacities_offered=ExpendableCityResources(
@@ -98,6 +103,7 @@ class LumberYard(Building):
 class Mine(Building):
     name = "Mine"
     size = 1
+    job_num_ticks = 8
     effect = Effect(
         duration_in_ticks=0,
         expendable_city_resources_per_tick=ExpendableCityResources(
@@ -115,6 +121,7 @@ class Mine(Building):
 class FoundryVault(Building):
     name = "Foundry Vault"
     size = 3
+    job_num_ticks = 15
     effect = Effect(
         duration_in_ticks=0,
         expendable_city_resource_capacities_offered=ExpendableCityResources(
@@ -133,6 +140,7 @@ class FoundryVault(Building):
 class School(Building):
     name = "School"
     size = 1
+    job_num_ticks = 8
     effect = Effect(
         duration_in_ticks=0,
         expendable_empire_resources_per_tick=ExpendableEmpireResources(
@@ -152,6 +160,7 @@ class School(Building):
 class University(Building):
     name = "University"
     size = 4
+    job_num_ticks = 30
     effect = Effect(
         duration_in_ticks=0,
         expendable_empire_resources_per_tick=ExpendableEmpireResources(
@@ -172,6 +181,7 @@ class University(Building):
 class Library(Building):
     name = "Library"
     size = 1
+    job_num_ticks = 10
     effect = Effect(
         duration_in_ticks=0,
         raw_morale_per_tick=0.025
@@ -189,6 +199,7 @@ class Library(Building):
 class Temple(Building):
     name = "Temple"
     size = 1
+    job_num_ticks = 10
     effect = Effect(
         duration_in_ticks=0,
         raw_morale_per_tick=0.025
@@ -206,6 +217,7 @@ class Temple(Building):
 class Hospital(Building):
     name = "Hospital"
     size = 4
+    job_num_ticks = 20
     effect = Effect(
         duration_in_ticks=0,
         raw_morale_per_tick=0.05,
@@ -224,6 +236,7 @@ class Hospital(Building):
 class Housing(Building):
     name = "Housing"
     size = 2
+    job_num_ticks = 12
     effect = Effect(
         duration_in_ticks=0,
         population_capacity_offered=100
@@ -248,6 +261,7 @@ class Housing(Building):
 class Barracks(Building):
     name = "Barracks"
     size = 2
+    job_num_ticks = 15
     effect = Effect(
         duration_in_ticks=0,
     )

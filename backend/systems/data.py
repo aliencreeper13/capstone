@@ -14,10 +14,10 @@ from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Optional
 
-from ..core.gameobject import GameObject
+from ..core.gameobject import GameObject, DataclassGameObject
 
 
-class GameDataclass(GameObject):
+class GameDataclass():
     """
     Base class for game data structures that support arithmetic operations.
     
@@ -75,7 +75,7 @@ class GameDataclass(GameObject):
     
 
 @dataclass
-class ExpendableCityResources(GameDataclass):
+class ExpendableCityResources(GameDataclass, DataclassGameObject):
     """
     Represents material resources available to a city.
     
@@ -114,7 +114,7 @@ class ExpendableCityResources(GameDataclass):
 
 
 @dataclass
-class Population(GameObject):
+class Population(DataclassGameObject):
     """
     Tracks city population by age group and employment capability.
     
@@ -295,7 +295,7 @@ class Population(GameObject):
 
 
 @dataclass
-class SocietalResources(GameObject):
+class SocietalResources(DataclassGameObject):
     """
     Aggregates population and morale metrics for a city.
     
@@ -321,7 +321,7 @@ class SocietalResources(GameObject):
 
 
 @dataclass
-class ExpendableEmpireResources(GameDataclass):
+class ExpendableEmpireResources(GameDataclass, DataclassGameObject):
     """
     Represents non-material resources managed at the empire level.
     

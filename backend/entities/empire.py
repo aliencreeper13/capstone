@@ -110,7 +110,7 @@ class Empire(GameObject, HasAllegianceMixin):
 
     # ========== Properties ==========
 
-    @public_client_property
+    @property
     def allegiance(self) -> Empire:
         """An empire is allegiant to itself."""
         return self
@@ -155,7 +155,7 @@ class Empire(GameObject, HasAllegianceMixin):
         """How much independent control each city has (0-100)."""
         return self._autonomy
     
-    @public_client_property
+    @property
     def game(self) -> Optional[Game]:
         """The game engine this empire belongs to."""
         return self._game

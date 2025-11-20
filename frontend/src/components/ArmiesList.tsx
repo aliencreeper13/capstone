@@ -8,11 +8,11 @@ import { Army } from "../types/gameState";
 import "./styles/ArmiesList.css";
 
 interface Props {
-  armies: Army[];
+  armies?: Army[];
 }
 
 const ArmiesList: React.FC<Props> = ({ armies }) => {
-  if (armies.length === 0) {
+  if (!armies || armies.length === 0) {
     return (
       <div className="armies-list">
         <h3>Armies</h3>

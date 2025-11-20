@@ -33,20 +33,32 @@ class Job(ABC):
         _unit_kwargs: Keyword args for unit instantiation
     """
     
-    def __init__(self, num_ticks: int, result: "Unit | type[Unit]", *unit_args, **unit_kwargs):
+    def __init__(self, result: "Unit | type[Unit]", *unit_args, **unit_kwargs):
         """
         Initialize a job.
         
         Args:
-            num_ticks: Number of ticks until job completion (must be > 0)
             result: Unit type (for creation) or Unit instance (for upgrade/destruction)
             *unit_args: Positional arguments for unit instantiation
             **unit_kwargs: Keyword arguments for unit instantiation
             
         Raises:
             ValueError: If result is neither a type nor Unit instance
-            AssertionError: If num_ticks <= 0
+            AssertionError: If job_num_ticks is not defined or <= 0
         """
+        # Determine if this is a creation or upgrade job based on result type
+        self._is_upgrade = self._determine_is_upgrade(result)
+        
+        # Get num_ticks from the unit's job_num_ticks class attribute
+        if self._is_upgrade:
+            # For upgrade/destruction, get from instance's class
+            num_ticks = result.__class__.job_num_ticks
+        else:
+            # For creation, get from the unit type
+            num_ticks = result.job_num_ticks
+        
+        assert hasattr(result if self._is_upgrade else result, 'job_num_ticks'), \
+            f"Unit class must define job_num_ticks attribute"
         assert num_ticks > 0, f"Job duration must be > 0, got {num_ticks}"
         
         self._num_ticks = num_ticks
@@ -54,8 +66,6 @@ class Job(ABC):
         self._unit_args = unit_args
         self._unit_kwargs = unit_kwargs
         
-        # Determine if this is a creation or upgrade job based on result type
-        self._is_upgrade = self._determine_is_upgrade(result)
         self._is_destruction: bool = False
         self._is_finished: bool = False
         self._final_result: Optional[Unit] = None
@@ -183,12 +193,11 @@ class CreationJob(Job):
     Takes a unit type and instantiates it after the required ticks.
     """
     
-    def __init__(self, num_ticks: int, result: type[Unit]):
+    def __init__(self, result: type[Unit]):
         """
         Initialize a creation job.
         
         Args:
-            num_ticks: Ticks until job completion
             result: Unit type to instantiate (must be type, not instance)
             
         Raises:
@@ -203,7 +212,7 @@ class CreationJob(Job):
         if not issubclass(result, Unit):
             raise ValueError(f"CreationJob type must be a subclass of Unit, got {result}")
         
-        super().__init__(num_ticks, result)
+        super().__init__(result)
 
 
 class UpgradeJob(Job):
@@ -213,12 +222,11 @@ class UpgradeJob(Job):
     Takes a unit instance and increases its level after the required ticks.
     """
     
-    def __init__(self, num_ticks: int, result: Unit):
+    def __init__(self, result: Unit):
         """
         Initialize an upgrade job.
         
         Args:
-            num_ticks: Ticks until job completion
             result: Unit instance to upgrade
             
         Raises:
@@ -229,7 +237,7 @@ class UpgradeJob(Job):
         
         if not isinstance(result, Unit):
             raise ValueError(f"UpgradeJob requires a Unit instance, not {type(result)}")
-        super().__init__(num_ticks, result)
+        super().__init__(result)
 
 
 class DestructionJob(Job):
@@ -239,12 +247,11 @@ class DestructionJob(Job):
     Removes the unit from the city after the required ticks.
     """
     
-    def __init__(self, num_ticks: int, result: Unit):
+    def __init__(self, result: Unit):
         """
         Initialize a destruction job.
         
         Args:
-            num_ticks: Ticks until destruction completes
             result: Unit instance to destroy
             
         Raises:
@@ -255,5 +262,5 @@ class DestructionJob(Job):
         
         if not isinstance(result, Unit):
             raise ValueError(f"DestructionJob requires a Unit instance, not {type(result)}")
-        super().__init__(num_ticks=num_ticks, result=result)
+        super().__init__(result=result)
         self._is_destruction = True

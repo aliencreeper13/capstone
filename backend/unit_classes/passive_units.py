@@ -22,6 +22,7 @@ class Settler(PassiveUnit):
     """
     name = "Settler"
     size = 1
+    job_num_ticks = 25
     effect = Effect(
         duration_in_ticks=0,
     )

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Optional
 
+from ..core.gameobject import GameObject, public_client_property
 from ..core.constants import DESTRUCTION_WEALTH_COST_PER_UNIT_SIZE
 from ..systems.data import ExpendableCityResources
 from ..systems.job_requirements import JobRequirements, HasJobRequirementsMixin
@@ -38,7 +39,7 @@ class Building(Unit):
         super().__init__(*args, **kwargs)
         self._city: Optional[City] = None
 
-    @property
+    @public_client_property
     def allegiance(self) -> Optional[Empire]:
         """
         Get the empire this building is allegiant to.

@@ -5,7 +5,7 @@ import GameBoard from './components/GameBoard';
 function App() {
   return (
     <div className="App">
-      <GameBoard useMockData={true} pollInterval={2000} />
+      <GameBoard useMockData={false} pollInterval={1000} />
     </div>
   );
 }

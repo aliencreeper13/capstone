@@ -25,6 +25,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Optional, Literal
 
+from ..core.gameobject import DataclassGameObject
+
 EventType = Literal[
     "battle_tick", "battle_result", "city_captured", 
     "building_completed", "unit_created", 
@@ -45,7 +47,7 @@ Attributes:
 
 
 @dataclass
-class GameEvent:
+class GameEvent(DataclassGameObject):
     """
     Represents a significant game event with timing and contextual data.
     
@@ -55,7 +57,7 @@ class GameEvent:
     
     Attributes:
         type (EventType): Classification of the event (e.g., "battle_result", "resource_change")
-        timestamp (datetime): When the event occurred (in game time)
+        timestamp (int): When the event occurred (in game time)
         source (str): Which game system created the event (e.g., "Army", "City", "Empire")
         description (str): Human-readable summary of what happened
         data (dict[str, Any]): Additional event metadata:
@@ -69,7 +71,7 @@ class GameEvent:
         >>> from datetime import datetime
         >>> event = GameEvent(
         ...     type="resource_change",
-        ...     timestamp=datetime.now(),
+        ...     timestamp=int(datetime.now().timestamp()),
         ...     source="City",
         ...     description="Market produced 10 wealth",
         ...     data={"resource_type": "wealth", "amount": 10}
@@ -81,8 +83,8 @@ class GameEvent:
     type: EventType
     """Event classification identifying what kind of occurrence this is."""
     
-    timestamp: datetime
-    """When the event occurred in game time."""
+    unix_timestamp: int
+    """When the event occurred in unix time."""
     
     source: str
     """Which game system created this event (e.g., 'Army', 'City', 'Empire')."""
@@ -97,6 +99,11 @@ class GameEvent:
     Contents depend on the event type and source system. Used for detailed
     game logic, debugging, and UI rendering.
     """
+
+    @property
+    def timestamp(self) -> datetime:
+        """Get the event timestamp as a datetime object."""
+        return datetime.fromtimestamp(self.unix_timestamp)
 
     def short_summary(self) -> str:
         """
@@ -148,7 +155,7 @@ class GameEvent:
         """
         return {
             "type": self.type,
-            "timestamp": self.timestamp.isoformat(),
+            "unix_timestamp": self.unix_timestamp,
             "source": self.source,
             "description": self.description,
             "data": self.data,

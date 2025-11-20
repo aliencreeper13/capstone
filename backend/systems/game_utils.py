@@ -7,7 +7,7 @@ raw (unbounded) and bounded display values.
 """
 
 from math import floor, exp, tanh, atanh
-
+from random import seed, uniform
 from ..core.constants import MAX_MORALE, HALF_MORALE
 
 
@@ -112,3 +112,19 @@ def raw_stat_from_bounded(display_value: float, steepness: float = 0.001) -> flo
     scale = 50.0
     normalized = (display_value - scale) / scale
     return atanh(normalized) / steepness
+
+
+def probability_ai_adds_job(autonomy: int, random_seed: int = None) -> float:
+    """
+    Calculate the probability that an AI-controlled city adds a job this tick.
+    Higher autonomy (0-100) increases the chance of adding jobs.
+    Randomness is applied here to prevent predictable behavior. 
+    Args: 
+        autonomy: City's autonomy level (0-100)
+        random_seed: Seed for randomness (optional)
+    Returns:
+        Probability of adding a job this tick (between 0 and 1)
+    """
+    if random_seed is not None:
+        seed(random_seed)
+    return min(1, max(0, autonomy / 100 + uniform(-0.1, 0.1)))
