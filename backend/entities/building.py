@@ -3,7 +3,7 @@ Building class representing urban structures within cities.
 
 Buildings are units that provide passive effects, generate resources, or unlock
 military capabilities. They take up space in a city and require resources/workers
-to construct and maintain.
+to construct and upgrade.
 """
 
 from __future__ import annotations
@@ -34,9 +34,16 @@ class Building(Unit):
         _city: City this building is located in
     """
     
-    def __init__(self, *args, **kwargs):
-        """Initialize building and set city reference."""
-        super().__init__(*args, **kwargs)
+    def __init__(self, level=1, *args, **kwargs):
+        """
+        Initialize building and set city reference.
+        Args:
+            level: Currently unused, buildings always start at level 1. 
+                   This parameter is only here just in case it is accidentally 
+                   instantiated with level argument. Additionally, there may be
+                   a future where buildings can be created at higher levels.
+        """
+        super().__init__(level=1, *args, **kwargs) # all buildings start at level 1
         self._city: Optional[City] = None
 
     @public_client_property

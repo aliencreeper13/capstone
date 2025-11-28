@@ -1,4 +1,5 @@
 from ..entities.building import Building
+from ..entities.unit import UnitCategory
 from ..systems.data import ExpendableCityResources, ExpendableEmpireResources
 from ..systems.effects import Effect
 from ..systems.job_requirements import JobRequirements
@@ -8,11 +9,12 @@ class Market(Building):
     name = "Market"
     size = 3
     job_num_ticks = 10
+    category = UnitCategory.ECONOMIC
     effect = Effect(
         duration_in_ticks=0,
         expendable_city_resources_per_tick=ExpendableCityResources(
             wealth=10
-        )
+        ),
     )
     job_requirements = JobRequirements(
         expendable_city_resources_level1=ExpendableCityResources(
@@ -23,15 +25,39 @@ class Market(Building):
     )
     description = "Periodically creates wealth for the city."
         
+
+class Bank(Building):
+    name = "Bank"
+    size = 3
+    job_num_ticks = 18
+    category = UnitCategory.ECONOMIC
+    effect = Effect(
+        duration_in_ticks=0,
+        expendable_empire_resources_pct_increase=ExpendableCityResources(
+            wealth=1),
+        expendable_city_resource_capacities_offered=ExpendableCityResources(
+            wealth=100
+        ),
+    )
+    job_requirements = JobRequirements(
+        expendable_city_resources_level1=ExpendableCityResources(
+            wealth=10,
+            timber=80,
+        ),
+        workers_needed_level1=3
+    )
+    description = "Adds more wealth storage for the city and boosts wealth generation."
+
 class Farm(Building):
     name = "Farm"
     size = 1
     job_num_ticks = 5
+    category = UnitCategory.ECONOMIC
     effect = Effect(
         duration_in_ticks=0,
         expendable_city_resources_per_tick=ExpendableCityResources(
             food=1
-        )
+        ),
     )
     job_requirements = JobRequirements(
         expendable_city_resources_level1=ExpendableCityResources(
@@ -46,11 +72,12 @@ class Granary(Building):
     name = "Granary"
     size = 3
     job_num_ticks = 15
+    category = UnitCategory.ECONOMIC
     effect = Effect(
         duration_in_ticks=0,
         expendable_city_resource_capacities_offered=ExpendableCityResources(
             food=100
-        )
+        ),
     )
     job_requirements = JobRequirements(
         expendable_city_resources_level1=ExpendableCityResources(
@@ -66,11 +93,12 @@ class WoodcuttersCamp(Building):
     name = "Woodcutter's Camp"
     size = 3
     job_num_ticks = 8
+    category = UnitCategory.ECONOMIC
     effect = Effect(
         duration_in_ticks=0,
         expendable_city_resources_per_tick=ExpendableCityResources(
             timber=1
-        )
+        ),
     )
     job_requirements = JobRequirements(
         expendable_city_resources_level1=ExpendableCityResources(
@@ -85,11 +113,13 @@ class LumberYard(Building):
     name = "Lumber Yard"
     size = 3
     job_num_ticks = 15
+    category = UnitCategory.ECONOMIC
     effect = Effect(
         duration_in_ticks=0,
         expendable_city_resource_capacities_offered=ExpendableCityResources(
             timber=100
-        )
+        ),
+
     )
     job_requirements = JobRequirements(
         expendable_city_resources_level1=ExpendableCityResources(
@@ -104,11 +134,13 @@ class Mine(Building):
     name = "Mine"
     size = 1
     job_num_ticks = 8
+    category = UnitCategory.ECONOMIC
     effect = Effect(
         duration_in_ticks=0,
         expendable_city_resources_per_tick=ExpendableCityResources(
             metal=1
-        )
+        ),
+
     )
     job_requirements = JobRequirements(
         expendable_city_resources_level1=ExpendableCityResources(
@@ -122,11 +154,13 @@ class FoundryVault(Building):
     name = "Foundry Vault"
     size = 3
     job_num_ticks = 15
+    category = UnitCategory.ECONOMIC
     effect = Effect(
         duration_in_ticks=0,
         expendable_city_resource_capacities_offered=ExpendableCityResources(
             metal=100
-        )
+        ),
+
     )
     job_requirements = JobRequirements(
         expendable_city_resources_level1=ExpendableCityResources(
@@ -141,13 +175,15 @@ class School(Building):
     name = "School"
     size = 1
     job_num_ticks = 8
+    category = UnitCategory.CIVILIAN
     effect = Effect(
         duration_in_ticks=0,
         expendable_empire_resources_per_tick=ExpendableEmpireResources(
             knowledge=1
         ),
         raw_morale_per_tick=0.1,
-        theoretical_new_employable_per_tick=1
+        theoretical_new_employable_per_tick=1,
+
     )
     job_requirements = JobRequirements(
         expendable_city_resources_level1=ExpendableCityResources(
@@ -161,13 +197,14 @@ class University(Building):
     name = "University"
     size = 4
     job_num_ticks = 30
+    category = UnitCategory.CIVILIAN
     effect = Effect(
         duration_in_ticks=0,
         expendable_empire_resources_per_tick=ExpendableEmpireResources(
             knowledge=100
         ),
-        theoretical_new_employable_per_tick=2
-        
+        theoretical_new_employable_per_tick=2,
+  
     )
     job_requirements = JobRequirements(
         expendable_city_resources_level1=ExpendableCityResources(
@@ -182,9 +219,11 @@ class Library(Building):
     name = "Library"
     size = 1
     job_num_ticks = 10
+    category = UnitCategory.CIVILIAN
     effect = Effect(
         duration_in_ticks=0,
-        raw_morale_per_tick=0.025
+        raw_morale_per_tick=0.025,
+
     )
     job_requirements = JobRequirements(
         expendable_city_resources_level1=ExpendableCityResources(
@@ -200,9 +239,11 @@ class Temple(Building):
     name = "Temple"
     size = 1
     job_num_ticks = 10
+    category = UnitCategory.CIVILIAN
     effect = Effect(
         duration_in_ticks=0,
-        raw_morale_per_tick=0.025
+        raw_morale_per_tick=0.025,
+
     )
     job_requirements = JobRequirements(
         expendable_city_resources_level1=ExpendableCityResources(
@@ -218,10 +259,11 @@ class Hospital(Building):
     name = "Hospital"
     size = 4
     job_num_ticks = 20
+    category = UnitCategory.CIVILIAN
     effect = Effect(
         duration_in_ticks=0,
         raw_morale_per_tick=0.05,
-        max_lifespan_increase=10  # Increases maximum population lifespan by 10 years
+        max_lifespan_increase=10,
     )
     job_requirements = JobRequirements(
         expendable_city_resources_level1=ExpendableCityResources(
@@ -237,9 +279,11 @@ class Housing(Building):
     name = "Housing"
     size = 2
     job_num_ticks = 12
+    category = UnitCategory.CIVILIAN
     effect = Effect(
         duration_in_ticks=0,
-        population_capacity_offered=100
+        population_capacity_offered=100,
+
     )
     job_requirements = JobRequirements(
         expendable_city_resources_level1=ExpendableCityResources(
@@ -262,6 +306,7 @@ class Barracks(Building):
     name = "Barracks"
     size = 2
     job_num_ticks = 15
+    category = UnitCategory.MILITARY
     effect = Effect(
         duration_in_ticks=0,
     )
@@ -279,8 +324,11 @@ class Barracks(Building):
 class Stable(Building):
     name = "Stable"
     size = 2
+    job_num_ticks=15
+    category = UnitCategory.MILITARY
     effect = Effect(
         duration_in_ticks=0,
+
     )
     job_requirements = JobRequirements(
         expendable_city_resources_level1=ExpendableCityResources(
@@ -296,10 +344,12 @@ class Stable(Building):
 class Fortress(Building):
     name = "Fortress"
     size = 5
+    job_num_ticks=20
+    category = UnitCategory.MILITARY
     effect = Effect(
         duration_in_ticks=0,
         city_base_protection_offered=500,
-        city_base_defense_offered=200
+        city_base_defense_offered=200,
     )
     job_requirements = JobRequirements(
         expendable_city_resources_level1=ExpendableCityResources(
@@ -315,9 +365,11 @@ class Fortress(Building):
 class Walls(Building):
     name = "Walls"
     size = 0  # this is not a typo, walls do not take up space
+    job_num_ticks=1
+    category = UnitCategory.MILITARY
     effect = Effect(
         duration_in_ticks=0,
-        city_base_protection_offered=10
+        city_base_protection_offered=10,
     )
     job_requirements = JobRequirements(
         expendable_city_resources_level1=ExpendableCityResources(

@@ -116,112 +116,31 @@ class ExpendableCityResources(GameDataclass, DataclassGameObject):
 @dataclass
 class Population(DataclassGameObject):
     """
-    Tracks city population by age group and employment capability.
+    Simplified population tracking without age-based lists.
     
-    Population ages naturally each tick and dies based on lifespan.
-    A subset of working-age population can be trained to become employable.
+    Tracks total population, employable workers, and currently employed workers.
+    Population growth and employment are managed as simple integer aggregates.
     
     Attributes:
-        population_by_age: List where index n contains the count of people aged n years
-        employable_population_by_age: List where index n contains people who can work aged n years
-        employed_population_by_age: List where index n contains people actively employed aged n years
-        max_lifespan: Maximum age a person can reach (deaths occur at this age)
+        total_population: Total number of people in the city
+        employable_population: Number of people trained to be workers
+        employed_population: Number of employable people currently employed
     """
-    population_by_age: list[int] = field(default_factory=lambda: [0]*100)
-    employable_population_by_age: list[int] = field(default_factory=lambda: [0]*100)
-    employed_population_by_age: list[int] = field(default_factory=lambda: [0]*100)
-    max_lifespan: int = 80  # Default lifespan (can be increased by hospitals)
-    @property
-    def unemployed_employable_population_by_age(self) -> list[int]:
-        """Get list of employable but currently unemployed population by age."""
-        unemployed = []
-        for age in range(len(self.employable_population_by_age)):
-            unemployed.append(
-                self.employable_population_by_age[age] - self.employed_population_by_age[age]
-            )
-        return unemployed
-    def add_population(self, num_people: int, age_group: int = 0) -> None:
-        """
-        Add population at a specific age group.
-        
-        Args:
-            num_people: Number of people to add
-            age_group: Age to add population at (default 0 for newborns)
-        """
-        if 0 <= age_group < len(self.population_by_age):
-            self.population_by_age[age_group] += num_people
-            
-    def add_employable_by_age(self, age_group: int, num_workers: int) -> None:
-        """
-        Add trained workers at a specific age group.
-        
-        Args:
-            age_group: Age of the workers
-            num_workers: Number of workers to add
-            
-        """
-        if 0 <= age_group < len(self.employable_population_by_age):
-            self.employable_population_by_age[age_group] += num_workers
-    def remove_employable_by_age(self, age_group: int, num_workers: Optional[int] = None) -> None:
-        """
-        Remove trained workers at a specific age group.
-        
-        Args:
-            age_group: Age of the workers
-            num_workers: Number of workers to remove. If None, then all workers are removed
-            
-        """
-        if num_workers is None:
-            self.employable_population_by_age[age_group] = 0
-        else:
-            self.employable_population_by_age[age_group] = max(0, self.employable_population_by_age[age_group] - num_workers)
-    def population_in_age_range(self, minimum: int, maximum: int) -> int:
-        """
-        Count total population in a given age range.
-        
-        Args:
-            minimum: Minimum age (inclusive)
-            maximum: Maximum age (inclusive)
-            
-        Returns:
-            Total number of people in the specified age range
-        """
-        num = 0
-        for age in range(minimum, maximum + 1):
-            if age < len(self.population_by_age):
-                num += self.population_by_age[age]
-        return num
-    
-    def workers_in_age_range(self, minimum: int, maximum: int) -> int:
-        """
-        Count workers available in a given age range.
-        
-        Args:
-            minimum: Minimum age (inclusive)
-            maximum: Maximum age (inclusive)
-            
-        Returns:
-            Number of available workers in the specified age range
-        """
-        num = 0
-        for age in range(minimum, maximum + 1):
-            if age < len(self.employable_population_by_age):
-                num += self.employable_population_by_age[age]
-        return num
+    total_population: int = 0
+    employable_population: int = 0
+    employed_population: int = 0
     
     def total(self) -> int:
-        """Return total population across all age groups."""
-        return sum(self.population_by_age)
+        """Return total population."""
+        return self.total_population
     
     def total_workers(self) -> int:
-        """Return total trained workers across all age groups."""
-        return sum(self.employable_population_by_age)
+        """Return total trained workers."""
+        return self.employable_population
     
     def employ_workers(self, num_workers: int) -> int:
         """
         Employ workers from the unemployed employable population.
-        
-        Takes from the pool of employable but unemployed workers across all age groups.
         
         Args:
             num_workers: Number of workers to employ
@@ -229,22 +148,15 @@ class Population(DataclassGameObject):
         Returns:
             Number of workers actually employed (may be less if not enough available)
         """
-        employed = 0
-        for age in range(len(self.employed_population_by_age)):
-            unemployed = self.employable_population_by_age[age] - self.employed_population_by_age[age]
-            to_employ = min(unemployed, num_workers - employed)
-            if to_employ > 0:
-                self.employed_population_by_age[age] += to_employ
-                employed += to_employ
-                if employed >= num_workers:
-                    break
-        return employed
+        unemployed = self.employable_population - self.employed_population
+        to_employ = min(unemployed, num_workers)
+        if to_employ > 0:
+            self.employed_population += to_employ
+        return to_employ
     
     def layoff_workers(self, num_workers: int) -> int:
         """
         Lay off workers from the employed population.
-        
-        Releases workers from employment across all age groups.
         
         Args:
             num_workers: Number of workers to lay off
@@ -252,46 +164,51 @@ class Population(DataclassGameObject):
         Returns:
             Number of workers actually laid off (may be less if not enough employed)
         """
-        laid_off = 0
-        for age in range(len(self.employed_population_by_age)):
-            employed = self.employed_population_by_age[age]
-            to_layoff = min(employed, num_workers - laid_off)
-            if to_layoff > 0:
-                self.employed_population_by_age[age] -= to_layoff
-                laid_off += to_layoff
-                if laid_off >= num_workers:
-                    break
-        return laid_off
+        to_layoff = min(self.employed_population, num_workers)
+        if to_layoff > 0:
+            self.employed_population -= to_layoff
+        return to_layoff
     
-    def age_population(self) -> int:
+    def add_population(self, num_people: int) -> None:
         """
-        Age the entire population by one year, handling deaths at max lifespan.
+        Add population to the city.
         
-        Returns:
-            Number of people who died from aging
+        Args:
+            num_people: Number of people to add
         """
-        deaths = 0
-        # Age population backwards to avoid double-aging
-        new_ages = [0] * len(self.population_by_age)
-        new_workers = [0] * len(self.employable_population_by_age)
-        new_employed = [0] * len(self.employed_population_by_age)
+        self.total_population += num_people
+        if self.total_population < 0:
+            self.total_population = 0
+    
+    def remove_population(self, num_people: int) -> None:
+        """
+        Remove population from the city (deaths, emigration, etc).
         
-        for age in range(len(self.population_by_age)):
-            if age < self.max_lifespan:
-                # Move population to next age group
-                new_ages[age + 1] = self.population_by_age[age]
-                if age + 1 < len(self.employable_population_by_age):
-                    new_workers[age + 1] = self.employable_population_by_age[age]
-                if age + 1 < len(self.employed_population_by_age):
-                    new_employed[age + 1] = self.employed_population_by_age[age]
-            else:
-                # People at or beyond max lifespan die
-                deaths += self.population_by_age[age]
+        Args:
+            num_people: Number of people to remove
+        """
+        self.total_population = max(0, self.total_population - num_people)
+    
+    def add_employable(self, num_workers: int) -> None:
+        """
+        Add trained workers to the employable population.
         
-        self.population_by_age = new_ages
-        self.employable_population_by_age = new_workers
-        self.employed_population_by_age = new_employed
-        return deaths
+        Args:
+            num_workers: Number of workers to train
+        """
+        self.employable_population += num_workers
+    
+    def remove_employable(self, num_workers: int) -> None:
+        """
+        Remove workers from the employable population.
+        
+        Args:
+            num_workers: Number of workers to remove
+        """
+        self.employable_population = max(0, self.employable_population - num_workers)
+        # Also reduce employed if needed
+        if self.employed_population > self.employable_population:
+            self.employed_population = self.employable_population
 
 
 @dataclass
@@ -300,24 +217,21 @@ class SocietalResources(DataclassGameObject):
     Aggregates population and morale metrics for a city.
     
     Attributes:
-        population: Age-tracked population data with employable and employed breakdowns by age
+        population: Population data (total, employable, and employed)
         morale: City morale level (0-100, 50.0 is neutral)
-    
-    Note: employable_population and employed_population are computed from Population's
-    employable_population_by_age and employed_population_by_age lists and should not be stored.
     """
     population: Population = field(default_factory=Population)
-    morale: float = 50.0  # currently unused, might remove
+    morale: float = 50.0  # currently unused (morale is its own category in the city). Delete?
     
     @property
     def employable_population(self) -> int:
-        """Calculate total employable population across all age groups."""
-        return sum(self.population.employable_population_by_age)
+        """Get total employable population."""
+        return self.population.employable_population
     
     @property
     def employed_population(self) -> int:
-        """Calculate total employed population across all age groups."""
-        return sum(self.population.employed_population_by_age)
+        """Get total employed population."""
+        return self.population.employed_population
 
 
 @dataclass

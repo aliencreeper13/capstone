@@ -17,7 +17,7 @@ if capstone_dir not in sys.path:
     sys.path.insert(0, capstone_dir)
 
 # Now we can import and run the game
-from backend.main import create_demo_game, run_demo_game
+from capstone.backend.archive.main_with_db import create_demo_game, run_demo_game
 
 if __name__ == "__main__":
     try:

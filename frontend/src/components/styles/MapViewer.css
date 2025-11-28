@@ -1,0 +1,140 @@
+.map-viewer {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background-color: #1a1a2e;
+  border: 1px solid #4a4a6a;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.map-header {
+  padding: 15px;
+  background-color: #16213e;
+  border-bottom: 1px solid #4a4a6a;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.map-header h3 {
+  margin: 0;
+  color: #00d4ff;
+  font-size: 18px;
+}
+
+.adjacent-info {
+  color: #51cf66;
+  font-size: 12px;
+  text-align: right;
+}
+
+.adjacent-info p {
+  margin: 4px 0;
+}
+
+.move-hint {
+  color: #ffd700 !important;
+  font-style: italic;
+}
+
+.map-canvas {
+  flex: 1;
+  background-color: #1a1a2e;
+  cursor: pointer;
+  border-bottom: 1px solid #4a4a6a;
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.map-canvas:hover {
+  background-color: #0d0d1f;
+}
+
+.loading,
+.error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 600px;
+  font-size: 18px;
+  color: #ff6b6b;
+}
+
+.loading {
+  color: #00d4ff;
+}
+
+.move-message {
+  padding: 12px;
+  background-color: #16213e;
+  color: #51cf66;
+  border-top: 1px solid #4a4a6a;
+  font-size: 14px;
+  text-align: center;
+}
+
+.move-message.error {
+  background-color: #2e1a1a;
+  color: #ff6b6b;
+}
+
+.move-message.success {
+  background-color: #1a2e1a;
+  color: #51cf66;
+}
+
+.node-info {
+  padding: 15px;
+  background-color: #16213e;
+  border-top: 1px solid #4a4a6a;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.node-info h4 {
+  margin: 0 0 10px 0;
+  color: #00d4ff;
+  font-size: 14px;
+}
+
+.stationed-armies {
+  margin-top: 10px;
+}
+
+.stationed-armies h5 {
+  margin: 0 0 8px 0;
+  color: #ffd700;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.stationed-armies ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.stationed-armies li {
+  padding: 6px 8px;
+  margin: 4px 0;
+  background-color: #0d0d1f;
+  border-left: 3px solid #4a4a6a;
+  color: #cccccc;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.stationed-armies li:hover {
+  background-color: #1a1a2e;
+  border-left-color: #00d4ff;
+}
+
+.stationed-armies li.selected {
+  background-color: #2d4a5a;
+  border-left-color: #ff6b6b;
+  color: #ff6b6b;
+  font-weight: bold;
+}

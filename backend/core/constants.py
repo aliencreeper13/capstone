@@ -6,7 +6,7 @@ Contains tunable parameters for game balance and mechanics.
 # Morale System
 MAX_MORALE: float = 100.0
 HALF_MORALE: float = MAX_MORALE / 2
-MORALE_REVOLT_THRESHOLD: float = 0.005  # Displayed morale below this triggers revolt (appears as 0.00)
+MORALE_REVOLT_THRESHOLD: float = 0.005  # Displayed morale below this triggers revolt (low morale period)
 
 # Autonomy System
 MAX_AUTONOMY: int = 100

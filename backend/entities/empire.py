@@ -58,7 +58,7 @@ class Empire(GameObject, HasAllegianceMixin):
     - An empire has an ideology affecting all mechanics
     - An empire belongs to one game
     """
-    
+    # TODO: remove autonomy parameter (ideology handles it)
     def __init__(self, autonomy: int, capital_city: Optional[City], ideology: Ideology):
         """
         Initialize a new empire.
@@ -92,7 +92,7 @@ class Empire(GameObject, HasAllegianceMixin):
         self._retirement_age: int = 65
 
         # How much independent control cities have (0 = micromanage, 100 = full autonomy)
-        self._autonomy = autonomy
+        self._autonomy = ideology._autonomy
 
         # Game engine reference
         self._game: Optional[Game] = None
@@ -109,6 +109,9 @@ class Empire(GameObject, HasAllegianceMixin):
             self.add_universal_or_capital_effect(ideological_effect)
 
     # ========== Properties ==========
+    @property
+    def cities(self) -> list[Empire]:
+        return self._cities
 
     @property
     def allegiance(self) -> Empire:
@@ -178,11 +181,19 @@ class Empire(GameObject, HasAllegianceMixin):
         """
         Add a city to this empire's control.
         
+        Newly added cities receive all ideology effects that were applied
+        to the empire at creation time.
+        
         Args:
-            city: The city to add (will set its allegiance)
+            city: The city to add (will set its allegiance and receive ideology effects)
         """
         city.set_allegiance(self)
         self._cities.append(city)
+        
+        # Apply all ideology effects to the newly added city
+        # This ensures all cities receive the same empire-wide effects
+        for ideological_effect in self._ideology.effects:
+            city.add_effect(ideological_effect)
 
     def remove_city(self, city: City) -> None:
         """

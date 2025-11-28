@@ -24,7 +24,7 @@ try:
         game.next_tick()
         print(f"    Tick {game.current_tick}: Population={city.total_population}, "
               f"Food={city._resources.food:.1f}, Wealth={city._resources.wealth:.1f}, "
-              f"Morale={city.morale:.1f}")
+              f"Morale={city.raw_morale:.1f}")
     
     print("\n" + "=" * 70)
     print("✅ INITIALIZATION TEST PASSED")

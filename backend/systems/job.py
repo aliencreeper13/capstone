@@ -7,12 +7,14 @@ Jobs can create new units, upgrade existing units, or destroy units.
 
 from __future__ import annotations
 from abc import ABC
+from datetime import datetime
 from typing import Optional, TYPE_CHECKING
 
 from .job_requirements import JobRequirements
 
 if TYPE_CHECKING:
     from ..entities.unit import Unit
+    
 
 
 class Job(ABC):
@@ -33,12 +35,13 @@ class Job(ABC):
         _unit_kwargs: Keyword args for unit instantiation
     """
     
-    def __init__(self, result: "Unit | type[Unit]", *unit_args, **unit_kwargs):
+    def __init__(self, result: "Unit | type[Unit]", starting_level: int = 1, *unit_args, **unit_kwargs):
         """
         Initialize a job.
         
         Args:
             result: Unit type (for creation) or Unit instance (for upgrade/destruction)
+            starting_level: Level to initialize new unit at (only for mobile unit creation jobs)
             *unit_args: Positional arguments for unit instantiation
             **unit_kwargs: Keyword arguments for unit instantiation
             
@@ -53,15 +56,21 @@ class Job(ABC):
         if self._is_upgrade:
             # For upgrade/destruction, get from instance's class
             num_ticks = result.__class__.job_num_ticks
+            self._result_class = result.__class__
         else:
             # For creation, get from the unit type
             num_ticks = result.job_num_ticks
-        
+            assert isinstance(result, type), f"Expected Unit type for creation job, got {type(result)}"
+            self._result_class = result
+            
+        self._starting_level: int = starting_level
         assert hasattr(result if self._is_upgrade else result, 'job_num_ticks'), \
             f"Unit class must define job_num_ticks attribute"
         assert num_ticks > 0, f"Job duration must be > 0, got {num_ticks}"
         
         self._num_ticks = num_ticks
+        self._original_ticks = num_ticks  # Track original total for progress calculation
+        self._space_needed = result.size if not self._is_upgrade else 0
         self._result: "Unit | type[Unit]" = result
         self._unit_args = unit_args
         self._unit_kwargs = unit_kwargs
@@ -128,10 +137,29 @@ class Job(ABC):
             assert isinstance(self._result, Unit), f"Expected Unit instance, got {type(self._result)}"
             self._result.upgrade()
             self._final_result = self._result
+
+            from ..gameplay.events import GameEvent
+            city = self._final_result.city if self._final_result.city else None
+            empire_of_city = self._final_result.city.allegiance if self._final_result.city else None
+            if city is None:
+                print(f"Warning: City is None for upgraded unit event logging. Upgraded unit: {self._final_result.name}")
+                return # cannot log event without city
+            event = GameEvent(
+                type="upgrade_completed",
+                unix_timestamp=int(datetime.now().timestamp()),
+                source="City",
+                description=f"Unit upgrade completed in {city.name}: {self._final_result.name}",
+                data={"city_name": city.name, "unit_type": self._final_result.name, "status": "completed"}
+        )
+            # message = f"✓ Completed job: {job_name}"
+            empire_of_city.record_event(event)
+            
         else:
             # Create new unit from type
             assert isinstance(self._result, type), f"Expected Unit type, got {type(self._result)}"
             self._final_result = self._result(*self._unit_args, **self._unit_kwargs)
+            # job_name = job_result.__name__ if hasattr(job_result, '__name__') else str(job_result)
+            
         
         self._is_finished = True
 
@@ -143,6 +171,7 @@ class Job(ABC):
     def result(self) -> Optional["Unit"]:
         """
         Get the completed unit (only valid after job is finished).
+        IMPORTANT: Completed units are NOT active by default and must be activated separately.
         
         Returns:
             None if job is not finished
@@ -153,15 +182,50 @@ class Job(ABC):
         return self._final_result
     
     @property
+    def current_unit(self) -> Optional["Unit"]:
+        """
+        Get the unit being worked on by this job.
+        
+        Returns:
+            For creation jobs: None (unit not created yet, returns None even if finished, call Job.result for that)
+            For upgrade/destruction jobs: the unit instance being upgraded/destroyed
+        """
+        if self._is_upgrade or self._is_destruction:
+            # assert isinstance(self._result, Unit), f"Expected Unit instance, got {type(self._result)}"
+            return self._result
+        else:
+            return None
+
+    @property
+    def result_class(self) -> type[Unit]:
+        """
+        Return the unit class/type this job produces or upgrades.
+        """
+        return self._result_class
+    
+    @property
     def is_upgrade(self) -> bool:
         """Return True if this job upgrades an existing unit."""
         return self._is_upgrade
 
     @property
+    def is_creation(self) -> bool:
+        """Return True if this job creates a new unit."""
+        return not self._is_upgrade and not self._is_destruction
+    
+    @property
+    def is_destruction(self) -> bool:
+        """Return True if this job destroys a unit."""
+        return self._is_destruction
+
+    @property
     def requirements(self) -> JobRequirements:
         """Get the job requirements from the unit."""
         return self._result.job_requirements
-
+    @property
+    def space_needed(self) -> int: 
+        """Get space in city needed for this job's unit upon completion."""
+        return self._space_needed
     @property
     def level_upon_completion(self) -> int:
         """
@@ -182,8 +246,9 @@ class Job(ABC):
             assert isinstance(self._result, Unit), f"Expected Unit instance, got {type(self._result)}"
             return self._result.level + 1
         else:
-            # Creation jobs always start at level 1
-            return 1
+            # Creation job, return starting level
+            # TODO: If a building job, ensure that starting level is 1
+            return self._starting_level
 
 
 class CreationJob(Job):
@@ -193,12 +258,13 @@ class CreationJob(Job):
     Takes a unit type and instantiates it after the required ticks.
     """
     
-    def __init__(self, result: type[Unit]):
+    def __init__(self, result: type[Unit], starting_level: int = 1):
         """
         Initialize a creation job.
         
         Args:
             result: Unit type to instantiate (must be type, not instance)
+            starting_level: Level to initialize the new unit at (default 1). However, buildings always start at level 1.
             
         Raises:
             ValueError: If result is not a type or not a Unit subclass

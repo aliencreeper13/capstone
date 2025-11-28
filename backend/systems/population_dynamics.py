@@ -189,37 +189,42 @@ class PopulationDynamics:
         """
         population = city.get_population_data()
         
-        # Apply starvation deaths (crude implementation - removes from youngest)
+        # Apply starvation deaths (removes from youngest ages first)
         if changes['deaths_starvation'] > 0:
             removed = 0
             for age in range(len(population.population_by_age)):
                 if removed >= changes['deaths_starvation']:
                     break
-                can_remove = population.population_by_age[age]
-                population.population_by_age[age] = 0
+                can_remove = min(
+                    population.population_by_age[age],
+                    changes['deaths_starvation'] - removed
+                )
+                population.population_by_age[age] -= can_remove
                 removed += can_remove
         
-        # Apply natural deaths
+        # Apply natural deaths (distributed proportionally across all ages)
         if changes['deaths_natural'] > 0:
             removed = 0
             for age in range(len(population.population_by_age)):
                 if removed >= changes['deaths_natural']:
                     break
+                # Remove up to 5% from each age group (more conservative than before)
                 can_remove = min(
-                    int(population.population_by_age[age] * 0.1),  # Remove up to 10% from each age
+                    int(population.population_by_age[age] * 0.05),
                     changes['deaths_natural'] - removed
                 )
                 population.population_by_age[age] -= can_remove
                 removed += can_remove
         
-        # Apply emigration
+        # Apply emigration (mostly working-age population emigrates)
         if changes['emigration'] > 0:
             removed = 0
-            for age in range(10, 80):  # Mostly working-age population emigrates
+            for age in range(15, 80):  # Mostly working-age population (15-80) emigrates
                 if removed >= changes['emigration']:
                     break
+                # Remove up to 10% from each age group (more conservative than 20%)
                 can_remove = min(
-                    int(population.population_by_age[age] * 0.2),  # Remove up to 20% from each age
+                    int(population.population_by_age[age] * 0.10),
                     changes['emigration'] - removed
                 )
                 population.population_by_age[age] -= can_remove

@@ -9,6 +9,7 @@ raw (unbounded) and bounded display values.
 from math import floor, exp, tanh, atanh
 from random import seed, uniform
 from ..core.constants import MAX_MORALE, HALF_MORALE
+from ..systems.data import GameDataclass
 
 
 def new_value_given_morale(baseline: float, morale: float, k: float = 0.01) -> float:
@@ -40,9 +41,34 @@ def new_value_given_morale(baseline: float, morale: float, k: float = 0.01) -> f
     assert 0 <= morale <= MAX_MORALE, (
         f"Morale must be between 0 and {MAX_MORALE}, got {morale}"
     )
-    # Sigmoid curve: when morale = HALF_MORALE, returns baseline
-    # When morale is higher, returns higher value; when lower, returns lower value
-    return baseline * (2 / (1 + exp(-k * (morale - HALF_MORALE))))
+    # Standard logistic sigmoid scaled to [0.2, 5.0] multiplier range
+    # At morale=50: multiplier = 1.0x (baseline production)
+    # At morale=0: multiplier ~ 0.2x (low morale reduces production)
+    # At morale=100: multiplier ~ 5.0x (high morale boosts production)
+    sigmoid = 1.0 / (1.0 + exp(-k * (morale - HALF_MORALE)))
+    multiplier = 0.2 + (5.0 - 0.2) * sigmoid
+    return baseline * multiplier
+
+
+def new_game_dataclass_given_morale(dataclass_obj: GameDataclass, morale: float, k: float = 0.01) -> GameDataclass:
+    """
+    Return a copy of `dataclass_obj` where each numeric attribute is transformed
+    by new_value_given_morale(baseline, morale, k). The original object is NOT mutated.
+
+    Args:
+        dataclass_obj: instance of GameDataclass (e.g. ExpendableCityResources)
+        morale: morale value passed through to new_value_given_morale
+        k: scaling factor passed through to new_value_given_morale
+
+    Returns:
+        A new GameDataclass instance with numeric fields adjusted for morale.
+    """
+    new_obj = dataclass_obj.copy()
+    for attr, val in dataclass_obj.__dict__.items():
+        if isinstance(val, (int, float)):
+            transformed = new_value_given_morale(float(val), morale, k)
+            setattr(new_obj, attr, transformed)
+    return new_obj
 
 
 # ============================================================================
@@ -125,6 +151,8 @@ def probability_ai_adds_job(autonomy: int, random_seed: int = None) -> float:
     Returns:
         Probability of adding a job this tick (between 0 and 1)
     """
+    if autonomy == 0:
+        return 0.0
     if random_seed is not None:
         seed(random_seed)
     return min(1, max(0, autonomy / 100 + uniform(-0.1, 0.1)))

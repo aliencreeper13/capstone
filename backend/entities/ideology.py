@@ -45,20 +45,30 @@ class Ideology(GameObject):
     def effects(self) -> list[Effect]:
         """Get all effects (neutral + specific) for this ideology."""
         return self._neutral_effects + self._ideological_specific_effects
-    
+    @public_client_property
+    def autonomy(self) -> int:
+        """Get the autonomy level for cities under this ideology."""
+        return self._autonomy
     @classmethod
     def neutral_effects(cls) -> list[Effect]:
         """
         Get the universal effects all ideologies share.
+        Recall that universal effects apply to all cities of an empire.
         
         Returns:
             List of universal effects
         """
         return [UniversalEffect(
             expendable_city_resources_per_tick=ExpendableCityResources(
+                food=1,
+                timber=1,
+                metal=1,
                 wealth=1
+                
             ),
-            theoretical_new_employable_per_tick=3
+            theoretical_new_people_per_tick=2,
+            theoretical_new_employable_per_tick=1, # it's called "theoretical" because the actual population growth is rounded to an integer 
+            effect_id=273847293847942387238972398478439
         ), # Single effect that scales food consumption with population
         UniversalEffect(
             duration_in_ticks=0,  # indefinite
@@ -177,10 +187,14 @@ class Dictatorship(Ideology):
         super().__init__([
             UniversalEffect(
                 duration_in_ticks=0,
-                raw_morale_per_tick=-0.5,
-                expendable_city_resources_pct_increase=ExpendableCityResources(
-                    wealth=10
-                )
+                raw_morale_per_tick=-0.05,
+                expendable_city_resources_per_tick=ExpendableCityResources(
+                    wealth=10,
+                    food=1,
+                    timber=1,
+                    metal=1
+                ),
+                effect_id=289237882987234897243893
             )
         ],
         autonomy=0)  # Dictatorial cities have no autonomy

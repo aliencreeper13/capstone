@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import Optional, TYPE_CHECKING
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
+from enum import Enum
 
 from ..core.constants import DESTRUCTION_WEALTH_COST_PER_UNIT_SIZE
 from ..core.gameobject import GameObject, DataclassGameObject
@@ -26,6 +27,12 @@ class BaseUnitAttributes:
     """Placeholder for unit attributes that may be expanded."""
     pass
 
+class UnitCategory(Enum):
+    """Enumeration of possible unit categories."""
+    UNCATEGORIZED = "Uncategorized"
+    MILITARY = "Military"
+    ECONOMIC = "Economic"
+    CIVILIAN = "Civilian"
 
 class Unit(GameObject, HasJobRequirementsMixin, ABC):
     """
@@ -55,11 +62,12 @@ class Unit(GameObject, HasJobRequirementsMixin, ABC):
     job_requirements: JobRequirements
     description: str
     job_num_ticks: int
+    category: UnitCategory = UnitCategory.UNCATEGORIZED
     
-    def __init__(self, *args, **kwargs):
-        """Initialize a unit at level 1, inactive."""
-        self._level: int = 1
-        self._active = False
+    def __init__(self, level=1, *args, **kwargs):
+        """Initialize a unit at level `level`, inactive."""
+        self._level: int = level
+        self._active = False # units start inactive, meaning their effects don't apply
         self._city: Optional[City] = None
 
     def set_active(self):
@@ -110,8 +118,13 @@ class Unit(GameObject, HasJobRequirementsMixin, ABC):
                 wealth=self.destruction_wealth_cost(level=self._level)
             )
         )
+
+    @property
+    def city(self) -> Optional[City]:
+        """Get the city this unit belongs to (or None if unassigned)."""
+        return self._city
     
-    def upgrade(self):
+    def upgrade(self, bonus_pct: float = 4):
         """
         Upgrade this unit to the next level.
         
@@ -124,16 +137,20 @@ class Unit(GameObject, HasJobRequirementsMixin, ABC):
         
         # Apply upgrade bonus to city if unit is assigned to one
         if self._city is not None:
-            # Create an upgrade bonus effect: 20% per level above 1
-            upgrade_bonus = (self._level - 1) * 0.20
+            # Create an upgrade bonus effect: 4% per level above 1
+            upgrade_bonus = (self._level - 1) * (bonus_pct / 100)
             
             # Scale the base effect by the upgrade bonus
-            upgrade_effect = self.effect.upgraded_effect(upgrade_bonus=upgrade_bonus)
-            
-            # Add the upgrade effect to the city (replaces any previous upgrade for this unit)
+            upgrade_effect = self.effect.get_upgraded(upgrade_bonus=upgrade_bonus)
+            assert upgrade_effect.effect_id == self.effect.effect_id, "Upgraded effect must have same ID as base effect"
+            # Add the upgrade effect to the city (replaces any previous upgrade for this unit, since effect_id is the same)
             self._city.add_effect(upgrade_effect)
+
+            # assign the upgraded effect to the unit's effect for future upgrades
+            self.effect = upgrade_effect
 
     @property
     def level(self) -> int:
         """Get current unit level."""
         return self._level
+    

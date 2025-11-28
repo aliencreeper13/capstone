@@ -9,7 +9,7 @@ from ..entities.army import Troop, ArmyAttributes
 from ..systems.data import ExpendableCityResources
 from ..systems.effects import Effect
 from ..systems.job_requirements import ContingentOnInfo, JobRequirements
-from .buildings import Barracks
+from .buildings import Barracks, Farm
 
 
 class Archer(Troop):
@@ -19,8 +19,8 @@ class Archer(Troop):
     Archers require a Barracks to be produced and consume ongoing resources.
     """
     name = "Archer"
-    size = 3
-    job_num_ticks = 12
+    size = 1
+    job_num_ticks = 2
     effect = Effect(
         duration_in_ticks=0,
         expendable_city_resources_per_tick=ExpendableCityResources(

@@ -4,7 +4,6 @@
  */
 
 import React, { useState, useEffect } from "react";
-import { GameApiService } from "../services/gameApi";
 import "./styles/CitySwitcher.css";
 
 interface City {
@@ -76,7 +75,7 @@ const CitySwitcher: React.FC<Props> = ({ onCitySelected }) => {
   };
 
   if (loading) {
-    return <div className="city-switcher loading">Loading cities...</div>;
+    // return <div className="city-switcher loading">Loading cities...</div>;
   }
 
   return (

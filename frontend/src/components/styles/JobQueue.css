@@ -1,0 +1,154 @@
+.job-queue {
+  background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+  border: 2px solid #f39c12;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.job-queue h3 {
+  margin: 0 0 12px 0;
+  color: #f39c12;
+  font-size: 16px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.empty-state {
+  color: #95a5a6;
+  font-style: italic;
+  padding: 20px;
+  text-align: center;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.jobs-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.job-card {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(243, 156, 18, 0.3);
+  border-radius: 6px;
+  padding: 12px;
+  transition: all 0.3s ease;
+}
+
+.job-card:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(243, 156, 18, 0.6);
+  box-shadow: 0 2px 4px rgba(243, 156, 18, 0.2);
+}
+
+.job-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.job-header .icon {
+  font-size: 24px;
+  min-width: 30px;
+  text-align: center;
+}
+
+.job-title {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.job-title .name {
+  color: #ecf0f1;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.job-title .badge {
+  display: inline-block;
+  font-size: 11px;
+  color: #f39c12;
+  text-transform: uppercase;
+  font-weight: 500;
+  padding: 2px 6px;
+  background: rgba(243, 156, 18, 0.1);
+  border-radius: 3px;
+  border: 1px solid rgba(243, 156, 18, 0.3);
+  width: fit-content;
+}
+
+.progress-container {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 24px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid rgba(243, 156, 18, 0.2);
+  position: relative;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #f39c12 0%, #e67e22 100%);
+  transition: width 0.3s ease;
+  position: relative;
+  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.3);
+}
+
+.progress-fill::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.progress-text {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: #bdc3c7;
+}
+
+.progress-text .percentage {
+  font-weight: 600;
+  color: #f39c12;
+  font-size: 13px;
+}
+
+.progress-text .ticks {
+  color: #95a5a6;
+  font-size: 11px;
+}

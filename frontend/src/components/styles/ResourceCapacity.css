@@ -1,0 +1,70 @@
+/* Resource Capacity Styles */
+
+.resource-capacity {
+  background: #f8f9fa;
+  padding: 15px;
+  border-radius: 6px;
+  border-left: 4px solid #667eea;
+}
+
+.resource-capacity h3 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  color: #34495e;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+}
+
+.resources-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+.resource-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.resource-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: #34495e;
+}
+
+.resource-name {
+  font-weight: 600;
+  color: #34495e;
+}
+
+.resource-values {
+  color: #667eea;
+  font-weight: 700;
+  font-size: 11px;
+}
+
+.resource-bar {
+  width: 100%;
+  height: 18px;
+  background: white;
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid #d5dbdb;
+}
+
+.resource-fill {
+  height: 100%;
+  transition: width 0.3s ease, background-color 0.3s ease;
+  border-radius: 4px;
+}
+
+.resource-percent {
+  font-size: 10px;
+  color: #7f8c8d;
+  font-weight: 500;
+}

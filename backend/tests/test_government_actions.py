@@ -258,8 +258,8 @@ class TestPropagandaAction:
         assert isinstance(effect, Effect)
         assert effect.duration_in_ticks == PROPAGANDA_POPULIST_DURATION
         assert effect.raw_morale_per_tick == 3
-        # Population increase is stored in new_people_per_tick
-        assert effect.new_people_per_tick == 5
+        # Population increase is stored in theoretical_new_people_per_tick
+        assert effect.theoretical_new_people_per_tick == 5.0
     
     def test_propaganda_get_effect_environmental(self):
         """Test that environmental campaign creates correct effect."""

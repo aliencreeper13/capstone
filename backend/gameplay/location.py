@@ -51,17 +51,20 @@ class WorldMap(GameObject):
     - Map size and terrain
     """
     
-    def __init__(self, size: tuple[int, int]):
+    def __init__(self, size: tuple[int, int], seed: Optional[int] = None):
         """
         Initialize a new world map.
         
         Args:
             size: (width, height) of the map in units
+            seed: Random seed for terrain generation (for consistency). If None, uses random seed.
         """
         super().__init__()
         self._size: tuple[int, int] = size
         self._nodes: list[GameNode] = []
         self._paths: dict[tuple[GameNode, GameNode], Path] = {}
+        self._seed: int = seed if seed is not None else random.randint(0, 2**31 - 1)
+        random.seed(self._seed)  # Set seed for terrain generation
     
     @staticmethod
     def _ccw(A: tuple[float, float], B: tuple[float, float], C: tuple[float, float]) -> bool:
@@ -128,6 +131,11 @@ class WorldMap(GameObject):
     def get_nodes(self) -> list[GameNode]:
         """Get all nodes currently on the map."""
         return self._nodes
+    
+    @property
+    def seed(self) -> int:
+        """Get the terrain generation seed."""
+        return self._seed
 
     def add_path(self, path: Path):
         """

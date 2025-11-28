@@ -30,7 +30,7 @@ from ..core.gameobject import DataclassGameObject
 EventType = Literal[
     "battle_tick", "battle_result", "city_captured", 
     "building_completed", "unit_created", 
-    "resource_change", "custom"
+    "resource_change", "custom", "job_submission", "upgrade_completed"
 ]
 """
 Valid event type classifications.
@@ -100,6 +100,9 @@ class GameEvent(DataclassGameObject):
     game logic, debugging, and UI rendering.
     """
 
+    triggered_by_ai: bool = False
+    """Whether this event was triggered by AI actions (True) or human player (False)."""
+
     @property
     def timestamp(self) -> datetime:
         """Get the event timestamp as a datetime object."""
@@ -159,4 +162,5 @@ class GameEvent(DataclassGameObject):
             "source": self.source,
             "description": self.description,
             "data": self.data,
+            "triggered_by_ai": self.triggered_by_ai,
         }

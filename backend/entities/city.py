@@ -49,7 +49,7 @@ from ..systems.data import (
 from ..systems.effects import Effect, EffectWithTicksLeft
 from ..systems.job_requirements import JobRequirements
 from ..systems.job import Job
-from ..systems.game_utils import new_value_given_morale, bounded_stat_from_raw
+from ..systems.game_utils import new_game_dataclass_given_morale, new_value_given_morale, bounded_stat_from_raw
 
 from .unit import Unit
 from .building import Building
@@ -180,7 +180,10 @@ class City(GameObject, HasAllegianceMixin):
         """The GameNode this city is contained within."""
         from ..gameplay.location import GameNode
         return self._gamenode
-    
+    @property
+    def coords(self) -> tuple[int, int]:
+        return self.gamenode.coords
+
     @property
     def empire_captured_by(self) -> Optional[Empire]:
         """The empire that captured this city, if any."""
@@ -231,7 +234,7 @@ class City(GameObject, HasAllegianceMixin):
     @private_client_property
     def space_left(self) -> int:
         """Remaining space for new buildings."""
-        return self._remaining_space()
+        return self._available_space()
     
     @private_client_property
     def hitpoints(self) -> float:
@@ -253,8 +256,8 @@ class City(GameObject, HasAllegianceMixin):
         for effect_with_ticks_left in self._effects_with_ticks_left:
             if not effect_with_ticks_left.is_finished():
                 total_protection += effect_with_ticks_left.effect.city_base_protection_offered
-        # Morale affects protection
-        return new_value_given_morale(total_protection, self.morale)
+        
+        return total_protection
     
     @private_client_property
     def expendable_resource_capacities(self) -> ExpendableCityResources:
@@ -337,31 +340,6 @@ class City(GameObject, HasAllegianceMixin):
         """
         return bounded_stat_from_raw(self._raw_morale)
 
-    @morale.setter
-    def morale(self, new_raw_morale_change: float) -> None:
-        """
-        Modify raw morale by a given amount (not setting it to an absolute value).
-        
-        This method adds to raw_morale, which then gets converted to displayed morale
-        via the getter. The revolt system checks the displayed morale value.
-        
-        Args:
-            new_raw_morale_change: Amount to add/subtract from raw_morale
-        """
-        from ..core.constants import REVOLT_COUNTDOWN_WHEN_MORALE_ZERO
-        
-        old_displayed_morale = self.morale  # Get current displayed value
-        self._raw_morale += new_raw_morale_change
-        new_displayed_morale = self.morale  # Get new displayed value
-        
-        # Start revolt countdown if displayed morale drops below threshold
-        if new_displayed_morale < MORALE_REVOLT_THRESHOLD and old_displayed_morale >= MORALE_REVOLT_THRESHOLD and self._revolt_countdown is None:
-            self._revolt_countdown = REVOLT_COUNTDOWN_WHEN_MORALE_ZERO
-        
-        # Cancel revolt countdown if morale recovers above threshold
-        elif new_displayed_morale >= MORALE_REVOLT_THRESHOLD and old_displayed_morale < MORALE_REVOLT_THRESHOLD and self._revolt_countdown is not None:
-            self._revolt_countdown = None
-    
     def add_raw_morale(self, amount: float) -> None:
         """
         Add morale to the city by modifying raw morale (or subtract to reduce morale).
@@ -482,7 +460,6 @@ class City(GameObject, HasAllegianceMixin):
         """
         Increase the total population of the city.
         
-        New population is added to the youngest age group (age 0, newborns).
         Population respects the city's capacity limit.
         
         Args:
@@ -497,18 +474,26 @@ class City(GameObject, HasAllegianceMixin):
         people_to_add = min(new_people, available_capacity)
         
         if people_to_add > 0:
-            self._societal_resources.population.add_population(people_to_add, age_group=0)
+            self._societal_resources.population.add_population(people_to_add)
 
     # ========== Space and Buildings ==========
 
-    def _remaining_space(self) -> int:
-        """Calculate remaining space for new buildings."""
-        total_occupied_space: int = 0
+    def _available_space(self) -> int:
+        """
+        Calculate remaining space for new buildings.
+        Counts the space contributed by ongoing jobs
+        (i.e., buildings under construction still occupy space).
+        """
+        total_actual_occupied_space: int = 0
         for building in self._buildings:
-            total_occupied_space += building.size
-        return self._size - total_occupied_space
+            total_actual_occupied_space += building.size
+        job_occupied_space: int = 0
+        for job in self._running_jobs:
+            job_occupied_space += job.space_needed
+
+        return self._size - total_actual_occupied_space - job_occupied_space
     
-    def _add_building(self, building: Building) -> None:
+    def _add_building(self, building: Building) -> bool:
         """
         Add a completed building to the city.
         
@@ -517,35 +502,35 @@ class City(GameObject, HasAllegianceMixin):
         
         Args:
             building: The building to add
+
+        Returns: True if successfully added building, False otherwise
         """
-        assert self._remaining_space() > 0, "No space for new building"
+        
+        # if no space for new building, then end gracefully and create game
+        # event that explains the building could not be built
+        if self._available_space() <= 0:
+
+            return False
+
+        # assert self._remaining_space() > 0, "No space for new building"
         assert building not in self._buildings, "Building already in city"
 
         self._buildings.append(building)
-        self._size -= building.size
+        # self._size -= building.size
         building.set_city(self)
-        
+        building.set_active()
         # Apply building's passive effects
         self.add_effect(effect=building.effect)
-        
-        # Apply max_lifespan_increase immediately (not per-tick)
-        if building.effect.max_lifespan_increase > 0:
-            self._societal_resources.population.max_lifespan += building.effect.max_lifespan_increase
+
+        return True
 
     def _destroy_building(self, building: Building) -> None:
         """
         Destroy a building and reclaim its space.
         
-        When a building is destroyed, any max_lifespan_increase it provided is removed
-        from the population (to prevent exploiting building destruction/reconstruction).
-        
         Args:
             building: The building to destroy
         """
-        # Remove max_lifespan_increase if this building provided it
-        if building.effect.max_lifespan_increase > 0:
-            self._societal_resources.population.max_lifespan -= building.effect.max_lifespan_increase
-        
         building.set_inactive()
         self._size += building.size
         self._buildings.remove(building)
@@ -562,6 +547,7 @@ class City(GameObject, HasAllegianceMixin):
         assert not self._troop_group.has_unit(mobile_unit=troop), "Unit already in troop group"
         troop.set_allegiance(empire=self.allegiance)
         self._troop_group.add_troop(troop=troop)
+        troop.set_active()
     
     def _add_passive_unit(self, passive_unit: MobileUnit) -> None:
         """
@@ -576,6 +562,7 @@ class City(GameObject, HasAllegianceMixin):
         assert not self._passive_unit_group.has_unit(mobile_unit=passive_unit), "Unit already in passive unit group"
         passive_unit.set_allegiance(empire=self.allegiance)
         self._passive_unit_group.add_mobile_unit(mobile_unit=passive_unit)
+        passive_unit.set_active()
 
     def units_of_subclass_active_in_city(self, unit_class: type, minimum_level: int = 0) -> int:
         """
@@ -653,7 +640,7 @@ class City(GameObject, HasAllegianceMixin):
         Args:
             city_resources: The amount of each resource to consume
         """
-        self._apply_resource_delta(city_resources, clamp_to_capacity=False)
+        self._apply_resource_delta(city_resources*-1, clamp_to_capacity=False)
 
     def change_empire_resources(self, empire_resources: ExpendableEmpireResources) -> None:
         """
@@ -734,52 +721,42 @@ class City(GameObject, HasAllegianceMixin):
         
         # Check contingencies - if effect shouldn't apply, return early
         if not effect.should_apply(self):
+            print("Effect failed to apply")
             return
 
         # Apply resource changes (using dynamic values if available)
+        # resource changes are affected by morale
         self.change_resources(
-            effect.get_city_resources_per_tick(city=self) * ticks_elapsed * self.expendable_city_resource_factor
+            new_game_dataclass_given_morale(effect.get_baseline_city_resources_per_tick(city=self) * ticks_elapsed * self.expendable_city_resource_factor, self.morale)
         )
 
         # Apply empire resource changes (including knowledge)
-        self.change_empire_resources(effect.get_empire_resources_per_tick(self) * ticks_elapsed)
+        self.change_empire_resources(effect.get_empire_resources_per_tick(city=self) * ticks_elapsed)
         
         # Apply morale changes
-        self._raw_morale += effect.get_raw_morale_per_tick(city=self) * ticks_elapsed
+        self.add_raw_morale(effect.get_raw_morale_per_tick(city=self) * ticks_elapsed)
+        # self.morale += effect.get_raw_morale_per_tick(city=self) * ticks_elapsed
         
         # Apply efficiency changes (if allegiant to an empire)
         raw_efficiency_per_tick = effect.get_raw_efficiency_per_tick(city=self)
         if raw_efficiency_per_tick != 0.0 and self.allegiance is not None:
             self.allegiance.add_raw_efficiency(raw_efficiency_per_tick * ticks_elapsed)
 
-        # Add new employable people from effect (distributed across age groups)
-        if self.allegiance is not None:
-            new_employable_float = effect.actual_new_employable_per_tick(city=self) * ticks_elapsed
-            new_employable = int(new_employable_float)  # Convert to int for population management
-            
-            if new_employable > 0:
-                # Distribute new employable people across age groups starting from working_age
-                # If not enough people in one age group, move to the next age group (up to retirement_age - 1)
-                remaining_to_add = new_employable
-                age = self.allegiance.working_age
-                retirement_age = self.allegiance.retirement_age
-                
-                while remaining_to_add > 0 and age < retirement_age:
-                    # Get non-employable people in this age group who can become employable
-                    population_in_age = self._societal_resources.population.population_by_age[age]
-                    already_employable = self._societal_resources.population.employable_population_by_age[age]
-                    available = population_in_age - already_employable
-                    
-                    # Add as many as possible from this age group
-                    to_add = min(available, remaining_to_add)
-                    if to_add > 0:
-                        self._societal_resources.population.add_employable_by_age(age, to_add)
-                        remaining_to_add -= to_add
-                    
-                    age += 1
-            
-            # Remove employable status from people who reach retirement age
-            self._societal_resources.population.remove_employable_by_age(self.allegiance.retirement_age, None)
+        # Apply population growth from effects
+        new_people = effect.actual_new_people_per_tick(city=self) * ticks_elapsed
+        # if new_people > 0:
+        # self._societal_resources.population.add_population(new_people)
+        self.increase_population(new_people)
+        
+        # Apply population loss from effects
+        # dead_people = effect.get_dead_people_per_tick(city=self) * ticks_elapsed
+        # if dead_people > 0:
+            # self._societal_resources.population.remove_population(dead_people)
+
+        # Add new employable people from effect
+        new_employable = effect.actual_new_employable_per_tick(city=self) * ticks_elapsed
+        # if new_employable > 0:
+        self._societal_resources.population.add_employable(new_employable)
 
     def _apply_all_effects(self) -> None:
         """
@@ -805,54 +782,92 @@ class City(GameObject, HasAllegianceMixin):
             del self._effects_with_ticks_left[i]
 
     # ========== Jobs ==========
-    def check_requirements(self, job: Job) -> tuple[bool, list[str]]:
-            """
-            Check all job requirements and collect any failures.
-            
-            Returns:
-                Tuple of (all_met: bool, failures: list[str])
-            """
-            requirements: JobRequirements = job.requirements
-            level = job.level_upon_completion
-            failures: list[str] = []
+    def check_job_requirements(self, job: Job) -> tuple[bool, list[str]]:
+        """
+        Check all job requirements and collect any failures.
+        
+        Returns:
+            Tuple of (all_met: bool, failures: list[str])
+        """
+        requirements: JobRequirements = job.requirements
+        level = job.level_upon_completion
+        failures: list[str] = []
 
-            # Check specific units are active
-            specific_units_contingent_on = requirements.specific_units_contingent_on
-            for unit_ in specific_units_contingent_on:
-                if not unit_.is_active():
-                    failures.append(f"Required unit {unit_.name} is not active")
-                
-            # Check unit types are available
-            for contingent_on_info in requirements.unit_types_contingent_on:
-                num_satisfying_units = self.units_of_subclass_active_in_city(
-                    unit_class=contingent_on_info.unit_class,
-                    minimum_level=contingent_on_info.minimum_level_needed
+        # First, if job is an upgrade or destruction job, check to see if there is
+        # already an ongoing job for this unit
+        if job.is_upgrade or job.is_destruction:
+            for ongoing_job in self._running_jobs:
+                if ongoing_job.current_unit is job.current_unit:
+                    print("Another job is already ongoing for target unit")
+                    failures.append(f"Another job is already ongoing for target unit {job.current_unit.name}")
+                    
+        
+
+        # Second, check if there's enough space in city if it's a creation job
+        if job.is_creation:
+            if self._available_space() < job.space_needed:
+                failures.append(f"Not enough available city space for job (need {job.space_needed}, have {self._available_space()})")
+
+        # Check specific units are active
+        specific_units_contingent_on = requirements.specific_units_contingent_on
+        for unit_ in specific_units_contingent_on:
+            if not unit_.is_active():
+                failures.append(f"Required unit {unit_.name} is not active")
+
+        
+            
+        # Check unit types are available
+        # TODO: Test recent implementation of creation jobs instantiating units
+        # at levels higher than 1
+        for contingent_on_info in requirements.unit_types_contingent_on:
+            if job.is_creation and level > 1:
+            # For creation jobs which instantiate their results at a level
+            # higher than 1, the minimum level needed for dependent unit classes
+            # is higher
+                minimum_level_needed = contingent_on_info.minimum_level_needed + level - 1
+            else:
+                minimum_level_needed = contingent_on_info.minimum_level_needed
+            num_satisfying_units = self.units_of_subclass_active_in_city(
+                unit_class=contingent_on_info.unit_class,
+                minimum_level=minimum_level_needed
+            )
+            if num_satisfying_units <= 0:
+                failures.append(f"Need {contingent_on_info.unit_class.__name__} units (level {minimum_level_needed}+)")
+
+        # Enforce maximum units of this type per city (runs for all jobs, not just those with contingencies)
+        if job.is_creation:
+            if job.requirements.max_per_city is not None:
+                num_units_of_same_subclass_as_result_class = self.units_of_subclass_active_in_city(
+                    unit_class=job.result_class,
+                    minimum_level=1
                 )
-                if num_satisfying_units <= 0:
-                    failures.append(f"Need {contingent_on_info.unit_class.__name__} units (level {contingent_on_info.minimum_level_needed}+)")
+                if num_units_of_same_subclass_as_result_class >= job.requirements.max_per_city:
+                    failures.append(f"Cannot have more than {job.requirements.max_per_city} units of type {job.result_class.__name__} in city")
 
-            # Check resources are available
-            food_needed = requirements.food(level=level)
-            timber_needed = requirements.timber(level=level)
-            wealth_needed = requirements.wealth(level=level)
-            metal_needed = requirements.metal(level=level)
-            
-            if self._resources.food < food_needed:
-                failures.append(f"Need {food_needed:.1f} food, have {self._resources.food:.1f}")
-            if self._resources.timber < timber_needed:
-                failures.append(f"Need {timber_needed:.1f} timber, have {self._resources.timber:.1f}")
-            if self._resources.wealth < wealth_needed:
-                failures.append(f"Need {wealth_needed:.1f} wealth, have {self._resources.wealth:.1f}")
-            if self._resources.metal < metal_needed:
-                failures.append(f"Need {metal_needed:.1f} metal, have {self._resources.metal:.1f}")
+        # Check resources are available
+        food_needed = requirements.food(level=level)
+        timber_needed = requirements.timber(level=level)
+        wealth_needed = requirements.wealth(level=level)
+        metal_needed = requirements.metal(level=level)
+        
+        if self._resources.food < food_needed:
+            failures.append(f"Need {food_needed:.1f} food, have {self._resources.food:.1f}")
+        if self._resources.timber < timber_needed:
+            failures.append(f"Need {timber_needed:.1f} timber, have {self._resources.timber:.1f}")
+        if self._resources.wealth < wealth_needed:
+            failures.append(f"Need {wealth_needed:.1f} wealth, have {self._resources.wealth:.1f}")
+        if self._resources.metal < metal_needed:
+            failures.append(f"Need {metal_needed:.1f} metal, have {self._resources.metal:.1f}")
 
-            # Check workers are available
-            workers_needed = requirements.workers_needed(level=level)
-            if self.employable_population < workers_needed:
-                failures.append(f"Need {workers_needed} workers, have {self.employable_population}")
-            
-            return len(failures) == 0, failures
-    def add_job(self, job: Job) -> tuple[bool, str, list[str]]:
+        # Check workers are available
+        workers_needed = requirements.workers_needed(level=level)
+        if self.employable_population < workers_needed:
+            failures.append(f"Need {workers_needed} workers, have {self.employable_population}")
+        
+        
+    
+        return len(failures) == 0, failures
+    def add_job(self, job: Job, from_ai: bool = False) -> tuple[bool, str, list[str]]:
         """
         Add a job to the city's queue if requirements are met.
         
@@ -881,11 +896,23 @@ class City(GameObject, HasAllegianceMixin):
         
 
         # Check all requirements
-        requirements_met, failures = self.check_requirements(job)
-        
+        requirements_met, failures = self.check_job_requirements(job)
+
+        if job.is_creation:
+            job_action = "create"
+        elif job.is_upgrade:
+            job_action = "upgrade"
+        elif job.is_destruction:
+            job_action = "destroy"
+        else:
+            job_action = "Submit"
+        source = "[PLAYER]"
+        if from_ai:
+            source = "[AI]"
+        job_name = f"{source} {job_action} {job.result_class.name}"
         # Record game event
         if self.allegiance is not None:
-            job_name = job.result.__name__ if hasattr(job.result, '__name__') else str(job.result)
+            job__result_name = job.result_class.name
             
             if requirements_met:
                 # Add job successfully
@@ -893,13 +920,16 @@ class City(GameObject, HasAllegianceMixin):
                 self.expend_city_resources(job.requirements.city_resources(level=level))
                 self._employ_people(job.requirements.workers_needed(level=level))
                 self._running_jobs.append(job)
+
+                
                 
                 event = GameEvent(
-                    type="custom",
+                    type="job_submission",
                     unix_timestamp=int(datetime.now().timestamp()),
                     source="City",
                     description=f"Job started in {self.name}: {job_name}",
-                    data={"city_name": self.name, "job_type": job_name, "status": "started"}
+                    data={"city_name": self.name, "job_type": job_name, "status": "started"},
+                    triggered_by_ai=from_ai
                 )
                 message = f"✓ Started job: {job_name}"
             else:
@@ -914,7 +944,8 @@ class City(GameObject, HasAllegianceMixin):
                         "job_type": job_name,
                         "status": "failed",
                         "reasons": failures
-                    }
+                    },
+                    triggered_by_ai=from_ai
                 )
                 message = f"✗ Cannot start job: {', '.join(failures)}"
             
@@ -931,6 +962,76 @@ class City(GameObject, HasAllegianceMixin):
                 message = f"✗ Cannot start job: {', '.join(failures)}"
         
         return requirements_met, message, failures
+
+    def expand_city(self, size_increase: int = 1) -> tuple[bool, str]:
+        """
+        Expand the city's size (space for buildings).
+        
+        Costs 500 wealth per size increase. City size cannot exceed gamenode size.
+        
+        Args:
+            size_increase: Number of size units to add (default 1)
+            
+        Returns:
+            Tuple of (success: bool, reason: str)
+            - success: True if expansion succeeded, False otherwise
+            - reason: Description of result or failure reason
+        """
+        from ..gameplay.events import GameEvent
+        
+        wealth_cost = 500 * size_increase
+        new_size = self._size + size_increase
+        
+        failures = []
+        
+        if self.get_wealth() < wealth_cost:
+            failures.append(f"Not enough wealth (need {wealth_cost}, have {self.get_wealth():.0f})")
+        
+        if new_size > self._gamenode.size:
+            failures.append(f"Cannot expand beyond region capacity ({new_size} > {self._gamenode.size})")
+        
+        if failures:
+            reason = ", ".join(failures)
+            if self.allegiance is not None:
+                event = GameEvent(
+                    type="custom",
+                    unix_timestamp=int(datetime.now().timestamp()),
+                    source="City",
+                    description=f"City expansion failed in {self.name}: {reason}",
+                    data={
+                        "city_name": self.name,
+                        "action": "expand_city",
+                        "status": "failed",
+                        "reasons": failures,
+                        "size_attempted": size_increase,
+                        "cost": wealth_cost
+                    }
+                )
+                self.allegiance.record_event(event)
+            return False, reason
+        
+        self.expend_city_resources(ExpendableCityResources(wealth=wealth_cost))
+        self._size = new_size
+        
+        reason = f"City expanded to size {self._size}"
+        if self.allegiance is not None:
+            event = GameEvent(
+                type="custom",
+                unix_timestamp=int(datetime.now().timestamp()),
+                source="City",
+                description=f"City expansion succeeded in {self.name}: expanded to size {self._size}",
+                data={
+                    "city_name": self.name,
+                    "action": "expand_city",
+                    "status": "success",
+                    "new_size": self._size,
+                    "cost": wealth_cost
+                }
+            )
+            self.allegiance.record_event(event)
+        
+        return True, reason
+
     def _AI_add_random_job(self, can_submit_destruction_jobs: bool = False) -> None:
         """
         AI adds a random job, if there are enough requirements, to the city.
@@ -1002,10 +1103,10 @@ class City(GameObject, HasAllegianceMixin):
         
         for building_class in building_classes:
             job = CreationJob(building_class)
-            requirements_met, failures = self.check_requirements(job)
+            requirements_met, failures = self.check_job_requirements(job)
             
             if requirements_met:
-                success, message, _ = self.add_job(job)
+                success, message, _ = self.add_job(job, from_ai=True)
                 return success
         
         return False
@@ -1026,10 +1127,10 @@ class City(GameObject, HasAllegianceMixin):
         
         for building in shuffled_buildings:
             job = UpgradeJob(building)
-            requirements_met, failures = self.check_requirements(job)
+            requirements_met, failures = self.check_job_requirements(job)
             
             if requirements_met:
-                success, message, _ = self.add_job(job)
+                success, message, _ = self.add_job(job, from_ai=True)
                 return success
         
         return False
@@ -1050,10 +1151,10 @@ class City(GameObject, HasAllegianceMixin):
         
         for building in shuffled_buildings:
             job = DestructionJob(building)
-            requirements_met, failures = self.check_requirements(job)
+            requirements_met, failures = self.check_job_requirements(job)
             
             if requirements_met:
-                success, message, _ = self.add_job(job)
+                success, message, _ = self.add_job(job, from_ai=True)
                 return success
         
         return False
@@ -1100,27 +1201,24 @@ class City(GameObject, HasAllegianceMixin):
         
         print(self._resources)
         
-        # ===== POPULATION MANAGEMENT =====
-        # Age population and handle deaths
-        deaths = self._societal_resources.population.age_population()
-        if deaths > 0:
-            print(f"{self.name}: {deaths} people died from old age")
-        
         # ===== POPULATION DYNAMICS =====
         # Use the new population dynamics system for comprehensive population changes
         from ..systems.population_dynamics import PopulationDynamics
         
         # Calculate all population changes
-        population_changes = PopulationDynamics.calculate_population_change(self)
+        # population_changes = PopulationDynamics.calculate_population_change(self)
         
         # Apply the changes
-        PopulationDynamics.apply_population_changes(self, population_changes)
+        # PopulationDynamics.apply_population_changes(self, population_changes)
         
         # Print population report (can be disabled in production)
-        if (population_changes['births'] > 0 or population_changes['net_change'] != 0 or
-            population_changes['deaths_old_age'] > 0 or population_changes['emigration'] > 0):
-            PopulationDynamics.print_population_report(self, population_changes)
-        
+        # if (population_changes['births'] > 0 or population_changes['net_change'] != 0 or
+            # population_changes['deaths_old_age'] > 0 or population_changes['emigration'] > 0):
+            # PopulationDynamics.print_population_report(self, population_changes)
+
+        # FIXME: This doesn't seem to be working...
+        if self._societal_resources.population.employable_population >= self._societal_resources.population.total():
+            self._societal_resources.population.employable_population = self._societal_resources.population.total()
         # ===== JOB PROGRESSION =====
         # Calculate job speedup multiplier from active effects (subsidies)
         job_speedup_multiplier = 1.0
@@ -1144,7 +1242,32 @@ class City(GameObject, HasAllegianceMixin):
                         pass  # Upgrades handled by job system
                     else:
                         assert job_result is not None
-                        self._add_building(job_result)
+                        from ..gameplay.events import GameEvent
+                        success = self._add_building(job_result)
+                        
+                        job_name = job_result.__name__ if hasattr(job_result, '__name__') else str(job_result)
+                        # TODO: Add refund for failed building jobs
+                        if not success:
+                            event = GameEvent(
+                                type="building_failed",
+                                unix_timestamp=int(datetime.now().timestamp()),
+                                source="City",
+                                description=f"Failed to build {job_result.name} in {self.name}. Insufficient space.",
+                                data={"city_name": self.name, "building_type": job_result.name, "status": "failed"}
+                            )
+                            message = f"✗ Failed to complete job: {job_name} (insufficient space)"
+                        else:
+                            
+                            event = GameEvent(
+                                type="building_completed",
+                                unix_timestamp=int(datetime.now().timestamp()),
+                                source="City",
+                                description=f"Building completed in {self.name}: {job_result.name}",
+                                data={"city_name": self.name, "building_type": job_result.name, "status": "completed"}
+                        )
+                        message = f"✓ Completed job: {job_name}"
+                        self.allegiance.record_event(event)
+                        # TODO: Add refund logic if success=False
                 elif isinstance(job_result, Troop):
                     self._add_troop(job_result)
 
@@ -1162,11 +1285,14 @@ class City(GameObject, HasAllegianceMixin):
             from ..systems.game_utils import probability_ai_adds_job
             
             prob = probability_ai_adds_job(self.autonomy)
+            print("AUTONOMY:", self.autonomy)
+            # prob = 0 # TEMPORARY
             if random() < prob:
                 can_destroy = False
                 self._AI_add_random_job(can_submit_destruction_jobs=can_destroy)
 
         # ===== RESOURCE CONSUMPTION & EFFECTS =====
+        # TODO: Make this a single effect with indefinite duration with dynamic raw morale per tick
         # Baseline morale degradation (natural baseline that effects balance out)
         self.add_effect(effect=Effect(
             duration_in_ticks=1,
@@ -1191,7 +1317,10 @@ class City(GameObject, HasAllegianceMixin):
         
         Decrements countdown each tick. When it reaches 0, the city revolts.
         """
+        if self.morale <= MORALE_REVOLT_THRESHOLD:
+            print("Revolt should occur...")
         if self._revolt_countdown is not None and self._revolt_countdown > 0:
+            print(f"{self.name} REVOLT COUNTDOWN: {self._revolt_countdown} TICKS REMAINING")
             self._revolt_countdown -= 1
             
             if self._revolt_countdown == 0:
@@ -1208,15 +1337,18 @@ class City(GameObject, HasAllegianceMixin):
         if self.allegiance is None:
             return  # Can't revolt without an empire
         
-        print(f"✗ REVOLT: {self.name} has revolted against {self.allegiance.allegiance.name if hasattr(self.allegiance.allegiance, 'name') else 'their empire'}!")
+        old_empire_name = self.allegiance.name if hasattr(self.allegiance, 'name') else 'their empire'
+        print(f"✗ REVOLT: {self.name} has revolted against {old_empire_name}!")
         
         # Determine new empire: try previous allegiance, else create AI empire
         if self._previous_allegiance is not None:
             new_empire = self._previous_allegiance
-            print(f"  → {self.name} rejoins {new_empire.allegiance.name if hasattr(new_empire.allegiance, 'name') else 'the previous empire'}")
+            new_empire_name = new_empire.name if hasattr(new_empire, 'name') else 'the previous empire'
+            print(f"  → {self.name} rejoins {new_empire_name}")
         else:
             # Create new AI empire
             from .ideology import NeutralIdeology
+            from ..entities.empire import Empire
             new_empire = Empire(autonomy=50, capital_city=self, ideology=NeutralIdeology())
             new_empire.assign_to_game(self.allegiance.game)
             print(f"  → {self.name} becomes capital of new AI empire")
@@ -1265,8 +1397,9 @@ class City(GameObject, HasAllegianceMixin):
         from ..core.constants import RESOURCE_TRANSFER_WEALTH_COST_PER_TILE, RESOURCE_TRANSFER_TICKS_PER_TILE
         
         # Calculate distance (Chebyshev/Chessboard distance)
-        dx = abs(self.coords[0] - target_city.coords[0])
-        dy = abs(self.coords[1] - target_city.coords[1])
+        
+        dx = abs(self.coords[0] - target_city.gamenode.coords[0])
+        dy = abs(self.coords[1] - target_city.gamenode.coords[1])
         distance = max(dx, dy)
         
         # Calculate costs

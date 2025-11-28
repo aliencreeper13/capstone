@@ -346,7 +346,7 @@ class PropagandaAction(GovernmentAction):
                 metal=data.get("metal", 0)
             ),
             raw_morale_per_tick=float(data.get("morale", 0)),
-            new_people_per_tick=data.get("population", 0)
+            theoretical_new_people_per_tick=float(data.get("population", 0))
         )
     
     def can_execute(self, empire: Empire) -> tuple[bool, str]:

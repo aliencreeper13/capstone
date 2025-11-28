@@ -7,10 +7,15 @@ import React, { useState, useEffect, useRef } from "react";
 import { GameState } from "../types/gameState";
 import { GameApiService } from "../services/gameApi";
 import EmpireStats from "./EmpireStats";
-import CityStats from "./CityStats";
-import BuildingManager from "./BuildingManager";
-import ArmiesList from "./ArmiesList";
 import CitySwitcher from "./CitySwitcher";
+import TabContainer, { TabDefinition } from "./TabContainer";
+import CityOverview from "./CityOverview";
+import BuildingUpgrades from "./BuildingUpgrades";
+import WorldMapView from "./WorldMapView";
+import GovernmentActions from "./GovernmentActions";
+import EventFeed from "./EventFeed";
+import TroopCreation from "./TroopCreation";
+import WorldMapViewer from "./WorldMapViewer";
 import "./styles/GameBoard.css";
 
 interface Props {
@@ -23,8 +28,36 @@ const GameBoard: React.FC<Props> = ({ pollInterval = 1000, useMockData = false }
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
-  const [needsRefresh, setNeedsRefresh] = useState(false);
+  const [, setNeedsRefresh] = useState(false);
+  const [jobs, setJobs] = useState<any[]>([]);
+  const [events, setEvents] = useState<any[]>([]);
+  const [isTroopCreationOpen, setIsTroopCreationOpen] = useState(false);
   const unsubscribeRef = useRef<(() => void) | null>(null);
+
+  // Fetch jobs and events periodically
+  useEffect(() => {
+    const fetchJobsAndEvents = async () => {
+      if (useMockData) return;
+      try {
+        const [jobsData, eventsData] = await Promise.all([
+          GameApiService.getCityJobs(),
+          GameApiService.getGameEvents(50),
+        ]);
+        setJobs(jobsData);
+        setEvents(eventsData);
+      } catch (err) {
+        console.error("Failed to fetch jobs/events:", err);
+      }
+    };
+
+    // Fetch immediately
+    fetchJobsAndEvents();
+
+    // Set up periodic polling
+    const interval = setInterval(fetchJobsAndEvents, pollInterval);
+
+    return () => clearInterval(interval);
+  }, [pollInterval, useMockData]);
 
   useEffect(() => {
     const fetchInitialState = async () => {
@@ -90,6 +123,16 @@ const GameBoard: React.FC<Props> = ({ pollInterval = 1000, useMockData = false }
     }).catch(err => console.error("Failed to refresh after building demolition:", err));
   };
 
+  const handleUnitCreated = () => {
+    setNeedsRefresh(true);
+    // Fetch immediately instead of waiting for next poll
+    GameApiService.getGameState().then((state) => {
+      setGameState(state);
+      setLastUpdate(new Date());
+      setError(null);
+    }).catch(err => console.error("Failed to refresh after unit creation:", err));
+  };
+
   if (loading && !gameState) {
     return (
       <div className="game-board loading">
@@ -131,37 +174,77 @@ const GameBoard: React.FC<Props> = ({ pollInterval = 1000, useMockData = false }
           <div className="sidebar-section">
             <CitySwitcher onCitySelected={handleBuildingCreated} />
           </div>
+          <div className="sidebar-section">
+            <button 
+              className="create-units-button"
+              onClick={() => setIsTroopCreationOpen(true)}
+            >
+              🎖️ Create Units
+            </button>
+          </div>
         </aside>
 
-        {/* Main Content: City View */}
+        {/* Main Content: Tabbed City View */}
         <main className="main-content">
-          <div className="city-view-container">
-            {/* City Stats */}
-            <section className="city-stats-section">
-              <CityStats city={selected_city} />
-            </section>
-
-            {/* City Contents: Buildings & Armies */}
-            <section className="city-contents">
-              <div className="contents-grid">
-                {/* Buildings */}
-                <div className="contents-panel">
-                  <BuildingManager 
+          <TabContainer
+            tabs={[
+              {
+                id: "city",
+                label: "City",
+                icon: "🏛️",
+                content: <CityOverview city={selected_city} />,
+              },
+              {
+                id: "world-map",
+                label: "World Map",
+                icon: "🌍",
+                content: <WorldMapViewer />,
+              },
+              {
+                id: "buildings",
+                label: "Buildings",
+                icon: "🏗️",
+                content: (
+                  <BuildingUpgrades
                     buildings={selected_city.buildings}
+                    onBuildingUpgraded={handleBuildingCreated}
                     onBuildingCreated={handleBuildingCreated}
                     onBuildingDemolished={handleBuildingDemolished}
+                    cityResources={selected_city.resources}
+                    cityMorale={selected_city.morale}
                   />
-                </div>
-
-                {/* Armies */}
-                <div className="contents-panel">
-                  <ArmiesList armies={selected_city.armies} />
-                </div>
-              </div>
-            </section>
-          </div>
+                ),
+              },
+              {
+                id: "government",
+                label: "Government",
+                icon: "⚖️",
+                content: (
+                  <GovernmentActions
+                    city={selected_city}
+                    empire={empire}
+                    onActionExecuted={handleBuildingCreated}
+                  />
+                ),
+              },
+              {
+                id: "events",
+                label: "Events",
+                icon: "📜",
+                content: <EventFeed events={events} maxVisible={50} />,
+              },
+            ]}
+            defaultTabId="city"
+          />
         </main>
       </div>
+
+      {/* Troop Creation Modal */}
+      <TroopCreation 
+        isOpen={isTroopCreationOpen}
+        onClose={() => setIsTroopCreationOpen(false)}
+        onUnitCreated={handleUnitCreated}
+      />
 
       {/* Footer: Last Update */}
       <footer className="board-footer">

@@ -167,9 +167,11 @@ class GameServer:
                 # Create new game
                 logger.info("[*] Creating new game...")
                 
-                # Create world map
-                self.worldmap = WorldMap(size=(100, 100))
-                logger.info(f"    ✓ World map created (100x100)")
+                # Create world map with random seed for terrain generation
+                import random
+                terrain_seed = random.randint(0, 2**31 - 1)
+                self.worldmap = WorldMap(size=(100, 100), seed=terrain_seed)
+                logger.info(f"    ✓ World map created (100x100, seed={terrain_seed})")
                 
                 # Create game instance
                 self.game = Game(self.worldmap)
@@ -502,6 +504,11 @@ async def get_available_buildings():
             {"name": "Hospital", "size": 4, "description": "Increases morale and lifespan"},
         ]
     }
+
+# ============================================================================
+# WORLD MAP ENDPOINTS
+# ============================================================================
+
 
 # ============================================================================
 # GAME PERSISTENCE ENDPOINTS

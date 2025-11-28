@@ -1,9 +1,11 @@
-/* Armies List Styles */
+/* Armies List Styles - Phase 4 Update */
 
 .armies-list {
   display: flex;
   flex-direction: column;
   gap: 15px;
+  max-height: 800px;
+  overflow-y: auto;
 }
 
 .armies-list h3 {
@@ -33,16 +35,30 @@
 
 .army-card {
   background: linear-gradient(135deg, #f8f9fa 0%, #ecf0f1 100%);
-  border: 1px solid #ecf0f1;
+  border: 2px solid #ecf0f1;
   border-left: 4px solid #667eea;
   border-radius: 6px;
   padding: 14px;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  cursor: pointer;
+  position: relative;
 }
 
 .army-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+}
+
+.army-card.selected {
+  border-color: #e74c3c;
+  border-left: 4px solid #e74c3c;
+  background: linear-gradient(135deg, #fadad5 0%, #f5c6c3 100%);
+  box-shadow: 0 4px 12px rgba(231, 76, 60, 0.2);
+}
+
+.army-card.moving {
+  border-left: 4px solid #f39c12;
+  background: linear-gradient(135deg, #fef5e7 0%, #fef9e7 100%);
 }
 
 .army-header {
@@ -52,6 +68,8 @@
   margin-bottom: 12px;
   padding-bottom: 8px;
   border-bottom: 1px solid #ecf0f1;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .army-header h4 {
@@ -59,6 +77,7 @@
   font-size: 15px;
   color: #2c3e50;
   font-weight: 600;
+  flex: 1;
 }
 
 .army-id {
@@ -69,6 +88,95 @@
   border-radius: 3px;
   border: 1px solid #ecf0f1;
   font-family: monospace;
+}
+
+.moving-badge {
+  background-color: #f39c12;
+  color: white;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+.army-location {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+  font-size: 12px;
+  flex-wrap: wrap;
+  background-color: #ffffff;
+  padding: 6px 8px;
+  border-radius: 4px;
+  border-left: 3px solid #667eea;
+}
+
+.army-location .label {
+  color: #7f8c8d;
+  font-weight: 500;
+}
+
+.location-value {
+  color: #27ae60;
+  font-weight: bold;
+}
+
+.destination-value {
+  color: #f39c12;
+  font-weight: bold;
+}
+
+.army-location .eta {
+  color: #e74c3c;
+  font-size: 10px;
+  margin-left: auto;
+  font-weight: bold;
+}
+
+.unit-composition {
+  margin-bottom: 10px;
+  padding: 8px;
+  background-color: #ffffff;
+  border-radius: 4px;
+  border-left: 3px solid #667eea;
+}
+
+.unit-composition .label {
+  color: #7f8c8d;
+  font-size: 11px;
+  font-weight: 500;
+  display: block;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+}
+
+.units-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.unit-item {
+  background-color: #f8f9fa;
+  border: 1px solid #ecf0f1;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.unit-type {
+  color: #667eea;
+  font-weight: bold;
+}
+
+.unit-count {
+  color: #e74c3c;
+  font-weight: bold;
 }
 
 .army-stats {
@@ -122,8 +230,36 @@
   font-weight: 600;
 }
 
+.army-selection-indicator {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  color: #e74c3c;
+  font-size: 11px;
+  font-weight: bold;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
 /* Status Colors */
+
+.excellent {
+  background: #2ecc71;
+}
+
 .healthy {
+  background: #27ae60;
+}
+
+.neutral {
   background: #27ae60;
 }
 

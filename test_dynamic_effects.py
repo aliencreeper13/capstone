@@ -69,14 +69,14 @@ dynamic_effect = Effect(
 
 # Check that dynamic values are computed correctly
 expected_food_per_tick = -(city.total_population * FOOD_CONSUMPTION_SENSITIVITY)
-actual_resources = dynamic_effect.get_city_resources_per_tick(city)
+actual_resources = dynamic_effect.get_baseline_city_resources_per_tick(city)
 assert actual_resources.food == expected_food_per_tick, \
     f"Expected {expected_food_per_tick}, got {actual_resources.food}"
 print(f"  ✅ Dynamic food consumption calculated correctly: {actual_resources.food} per tick for {city.total_population} population")
 
 # Change population and verify dynamic value changes
 city._societal_resources.population.adults = 200
-actual_resources = dynamic_effect.get_city_resources_per_tick(city)
+actual_resources = dynamic_effect.get_baseline_city_resources_per_tick(city)
 expected_food_per_tick = -(city.total_population * FOOD_CONSUMPTION_SENSITIVITY)
 assert actual_resources.food == expected_food_per_tick, \
     f"Expected {expected_food_per_tick}, got {actual_resources.food}"
@@ -91,7 +91,7 @@ static_effect = Effect(
     expendable_city_resources_per_tick=ExpendableCityResources(food=-10, timber=5)
 )
 
-resources = static_effect.get_city_resources_per_tick(city)
+resources = static_effect.get_baseline_city_resources_per_tick(city)
 assert resources.food == -10, f"Expected -10, got {resources.food}"
 assert resources.timber == 5, f"Expected 5, got {resources.timber}"
 print("  ✅ Static values work as fallback when no dynamic function provided")
@@ -135,7 +135,7 @@ advanced_effect = Effect(
 
 # Should apply with high wealth
 assert advanced_effect.should_apply(city), "Should apply when wealth is high"
-resources = advanced_effect.get_city_resources_per_tick(city)
+resources = advanced_effect.get_baseline_city_resources_per_tick(city)
 assert resources.wealth == -(city.total_population * 0.2), "Should calculate dynamic wealth cost"
 print(f"  ✅ Effect applies with wealth={city._resources.wealth}, cost={resources.wealth}")
 
@@ -191,7 +191,7 @@ food_effect = city._effects_with_ticks_left[-2].effect
 hunger_effect = city._effects_with_ticks_left[-1].effect
 
 # Verify food consumption effect calculates correctly
-resources = food_effect.get_city_resources_per_tick(city)
+resources = food_effect.get_baseline_city_resources_per_tick(city)
 expected_consumption = -(city.total_population * FOOD_CONSUMPTION_SENSITIVITY)
 assert resources.food == expected_consumption, f"Expected {expected_consumption}, got {resources.food}"
 print(f"  ✅ Food consumption calculated: {resources.food} per tick for {city.total_population} population")
@@ -227,7 +227,7 @@ empire = Empire(autonomy=50, capital_city=city, ideology=ideology)
 city.set_allegiance(empire)
 
 # Test all getters work
-assert effect.get_city_resources_per_tick(city).food == -1
+assert effect.get_baseline_city_resources_per_tick(city).food == -1
 assert effect.get_raw_morale_per_tick(city) == 0.5
 assert effect.get_raw_efficiency_per_tick(city) == 0.1
 assert effect.get_city_hitpoint_regeneration_per_tick(city) == 2

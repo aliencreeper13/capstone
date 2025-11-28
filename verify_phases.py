@@ -80,13 +80,13 @@ try:
     print("  ✅ No countdown initially")
     
     # Set morale to 0 - should trigger countdown
-    city.morale = 0
+    city.raw_morale = 0
     countdown = city.get_revolt_countdown()
     assert countdown == REVOLT_COUNTDOWN_WHEN_MORALE_ZERO
     print(f"  ✅ Morale=0 triggers countdown ({countdown} ticks)")
     
     # Recover morale - should cancel countdown
-    city.morale = 50
+    city.raw_morale = 50
     assert city.get_revolt_countdown() is None
     print("  ✅ Morale recovery cancels countdown")
     
@@ -139,7 +139,7 @@ try:
     original_empire = city.allegiance
     
     # Set morale to 0 and manually trigger countdown
-    city.morale = 0
+    city.raw_morale = 0
     assert city.get_revolt_countdown() is not None
     print("  ✅ Revolt countdown started")
     

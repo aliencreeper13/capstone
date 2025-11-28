@@ -31,6 +31,8 @@ const BuildingIcons: Record<string, string> = {
   library: "📖",
   academy: "🏫",
   woodcutterscamp: "🪚",
+  "woodcutter's camp": "🪚",
+  "Woodcutter's Camp": "🪚",
   mine: "⛏️",
   granary: "🏺",
   lumberyard: "📦",
@@ -49,7 +51,7 @@ const getBuildingIcon = (name: string): string => {
 
 const BuildingManager: React.FC<Props> = ({ buildings, onBuildingCreated, onBuildingDemolished }) => {
   const [availableBuildings, setAvailableBuildings] = useState<AvailableBuilding[]>([]);
-  const [isCreating, setIsCreating] = useState(false);
+  const [isCreating] = useState(false);
   const [selectedBuildingType, setSelectedBuildingType] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);

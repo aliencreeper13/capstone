@@ -6,26 +6,37 @@
 import React from "react";
 import { CityData } from "../types/gameState";
 import "./styles/CityStats.css";
+import { lerpColor } from "../utils/game_utils";
 
 interface Props {
   city: CityData;
 }
 
 const CityStats: React.FC<Props> = ({ city }) => {
-  const moraleStatus =
-    city.morale > 75
-      ? "Excellent"
-      : city.morale > 50
-      ? "Good"
-      : city.morale > 25
-      ? "Poor"
-      : "Critical";
+  const moraleMinusNeutral = (city.morale - 50);
+  const moraleStatus = moraleMinusNeutral >= 33.33
+    ? 'Outstanding'
+    : moraleMinusNeutral >= 16.66 && moraleMinusNeutral < 33.33
+    ? 'Excellent'
+    : moraleMinusNeutral >= -16.66 && moraleMinusNeutral < 16.66
+    ? 'Neutral'
+    : moraleMinusNeutral >= -33.33 && moraleMinusNeutral < -16.66
+    ? 'Poor'
+    : 'Critical'
+    
 
   const getMoraleColor = () => {
-    if (city.morale > 75) return "#27ae60";
-    if (city.morale > 50) return "#f39c12";
-    if (city.morale > 25) return "#e74c3c";
-    return "#c0392b";
+    const clamped = Math.max(-50, Math.min(50, moraleMinusNeutral));
+
+    if (clamped < 0) {
+        // -50 → 0 maps to 0 → 1 interpolation from red → yellow
+        const t = (clamped + 50) / 50;
+        return lerpColor("#e74c3c", "#f1c40f", t);
+    } else {
+        // 0 → 50 maps to 0 → 1 interpolation from yellow → green
+        const t = clamped / 50;
+        return lerpColor("#f1c40f", "#2ecc71", t);
+    }
   };
 
   const hpPercentage = (city.hitpoints / city.max_hitpoints) * 100;
@@ -102,12 +113,14 @@ const CityStats: React.FC<Props> = ({ city }) => {
           </div>
         </div>
 
-        {/* Space Usage */}
+        {/* Space Usage*/}
+        {/* FIXME: `city.space_total` seems to actually represent available space, and not total space*/}
         <div className="stat-section">
           <h3>Space</h3>
           <div className="stat-row">
             <span>Used:</span>
             <span className="value">
+              
               {city.space_used} / {city.space_total}
             </span>
           </div>
@@ -157,3 +170,5 @@ const CityStats: React.FC<Props> = ({ city }) => {
 };
 
 export default CityStats;
+
+

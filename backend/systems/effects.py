@@ -40,7 +40,7 @@ class Effect(DataclassGameObject):
         city_hitpoint_regeneration_per_tick: HP recovered per tick
         expendable_city_resource_capacities_offered: Storage bonuses
         population_capacity_offered: Housing bonus
-        new_people_per_tick: Birth rate modifier
+        theoretical_new_people_per_tick: Theoretical birth rate per tick (float for precision)
         dead_people_per_tick: Death rate modifier
         capital_effect: Only applies when city is the capital
         specific_units_contingent_on: Effect only active if these units exist
@@ -63,6 +63,7 @@ class Effect(DataclassGameObject):
     )
 
     theoretical_new_employable_per_tick: float = 0.0 # *Theoretical* new workers generated per tick. Actual workers per tick will be rounded to int
+    theoretical_new_people_per_tick: float = 0.0  # *Theoretical* new population generated per tick. Actual population per tick will be rounded to int
 
     raw_morale_per_tick: float = 0.0
     raw_efficiency_per_tick: float = 0.0  # Direct empire efficiency change per tick
@@ -75,7 +76,6 @@ class Effect(DataclassGameObject):
     )
     population_capacity_offered: int = 0
 
-    new_people_per_tick: int = 0
     dead_people_per_tick: int = 0
     max_lifespan_increase: int = 0  # Increases the maximum age population can reach
 
@@ -105,6 +105,9 @@ class Effect(DataclassGameObject):
     # Dynamic per-tick new employable workers (overrides theoretical_new_employable_per_tick)
     dynamic_theoretical_new_employable_per_tick: Optional[Callable[[City], float]] = None
     
+    # Dynamic per-tick new population (overrides theoretical_new_people_per_tick)
+    dynamic_theoretical_new_people_per_tick: Optional[Callable[[City], float]] = None
+    
     # Dynamic per-tick morale change (overrides morale_per_tick)
     dynamic_morale_per_tick: Optional[Callable[[City], float]] = None
     
@@ -114,14 +117,15 @@ class Effect(DataclassGameObject):
     # Dynamic per-tick HP regeneration (overrides city_hitpoint_regeneration_per_tick)
     dynamic_city_hitpoint_regeneration_per_tick: Optional[Callable[[City], int]] = None
     
-    # Dynamic per-tick new population (overrides new_people_per_tick)
-    dynamic_new_people_per_tick: Optional[Callable[[City], int]] = None
-    
     # Dynamic per-tick death rate (overrides dead_people_per_tick)
     dynamic_dead_people_per_tick: Optional[Callable[[City], int]] = None
     
     # Dynamic job speedup multiplier (overrides job_speedup_multiplier)
     dynamic_job_speedup_multiplier: Optional[Callable[[City], float]] = None
+    def __post_init__(self):
+        """Ensure effect_id is set for tracking."""
+        if self.effect_id is None or not isinstance(self.effect_id, (int, float)):
+            self.effect_id = id(self)
 
     def is_indefinite(self) -> bool:
         """Return True if this effect has infinite duration."""
@@ -152,10 +156,12 @@ class Effect(DataclassGameObject):
         """
         # Check unit contingencies
         if not self.is_active():
+            print("Effect inactive due to unit contingencies")
             return False
         
         # Check arbitrary contingency if provided
         if self.contingency_check is not None:
+            print("Effect inactive due to failed contingency check")
             return self.contingency_check(city)
         
         return True
@@ -163,56 +169,99 @@ class Effect(DataclassGameObject):
     def actual_new_employable_per_tick(self, city: City) -> int:
         """Get the actual new workers generated per tick, cannot exceed working-age population (rounded int)."""
         if self.dynamic_theoretical_new_employable_per_tick is not None:
-            return ceil(self.dynamic_theoretical_new_employable_per_tick(city))
+            non_ceil_value = (self.dynamic_theoretical_new_employable_per_tick(city))
+            if non_ceil_value is not None:
+                return ceil(non_ceil_value)
+            else:
+                return ceil(self.theoretical_new_employable_per_tick) 
         else:
             return ceil(self.theoretical_new_employable_per_tick)
     
-    def get_city_resources_per_tick(self, city: City) -> ExpendableCityResources:
-        """Get the actual city resource changes for this tick, using dynamic values if available."""
+    def get_baseline_city_resources_per_tick(self, city: City) -> ExpendableCityResources:
+        """Get the actual city resource changes for this tick, using dynamic values if available.
+        Important note: These are *baseline* changes, meaning they are for when morale=50. The actual
+        changes are computed later by applying the morale function to these values."""
         if self.dynamic_expendable_city_resources_per_tick is not None:
-            return self.dynamic_expendable_city_resources_per_tick(city)
+            value = self.dynamic_expendable_city_resources_per_tick(city)
+            if value is not None:
+                return value
+            else:
+                return self.expendable_city_resources_per_tick
         return self.expendable_city_resources_per_tick
     
     def get_empire_resources_per_tick(self, city: City) -> ExpendableEmpireResources:
         """Get the actual empire resource changes for this tick, using dynamic values if available."""
         if self.dynamic_expendable_empire_resources_per_tick is not None:
-            return self.dynamic_expendable_empire_resources_per_tick(city)
+            value = self.dynamic_expendable_empire_resources_per_tick(city)
+            if value is not None:
+                return value
+            else:
+                return self.expendable_empire_resources_per_tick
+            
         return self.expendable_empire_resources_per_tick
     
     def get_raw_morale_per_tick(self, city: City) -> float:
         """Get the actual morale change for this tick, using dynamic values if available."""
         if self.dynamic_morale_per_tick is not None:
-            return self.dynamic_morale_per_tick(city)
+            value = self.dynamic_morale_per_tick(city)
+            if value is not None:
+                return value
+            else:
+                return self.raw_morale_per_tick
         return self.raw_morale_per_tick
     
     def get_raw_efficiency_per_tick(self, city: City) -> float:
         """Get the actual efficiency change for this tick, using dynamic values if available."""
         if self.dynamic_raw_efficiency_per_tick is not None:
-            return self.dynamic_raw_efficiency_per_tick(city)
+            value = self.dynamic_raw_efficiency_per_tick(city)
+            if value is not None:
+                return value
+            else:
+                return self.raw_efficiency_per_tick
+            
         return self.raw_efficiency_per_tick
     
     def get_city_hitpoint_regeneration_per_tick(self, city: City) -> int:
         """Get the actual HP regeneration for this tick, using dynamic values if available."""
         if self.dynamic_city_hitpoint_regeneration_per_tick is not None:
-            return self.dynamic_city_hitpoint_regeneration_per_tick(city)
+            value = self.dynamic_city_hitpoint_regeneration_per_tick(city)
+            if value is not None:
+                return value
+            else:
+                return self.city_hitpoint_regeneration_per_tick 
         return self.city_hitpoint_regeneration_per_tick
     
-    def get_new_people_per_tick(self, city: City) -> int:
-        """Get the actual population birth rate for this tick, using dynamic values if available."""
-        if self.dynamic_new_people_per_tick is not None:
-            return self.dynamic_new_people_per_tick(city)
-        return self.new_people_per_tick
+    def actual_new_people_per_tick(self, city: City) -> int:
+        """Get the actual new population per tick, cannot be fractional (rounded int)."""
+        if self.dynamic_theoretical_new_people_per_tick is not None:
+            non_ceil_value = (self.dynamic_theoretical_new_people_per_tick(city))
+            if non_ceil_value is not None:
+                return ceil(non_ceil_value)
+            else:
+                return ceil(self.theoretical_new_people_per_tick)
+        else:
+            return ceil(self.theoretical_new_people_per_tick)
     
     def get_dead_people_per_tick(self, city: City) -> int:
         """Get the actual population death rate for this tick, using dynamic values if available."""
         if self.dynamic_dead_people_per_tick is not None:
-            return self.dynamic_dead_people_per_tick(city)
+            value = self.dynamic_dead_people_per_tick(city)
+            if value is not None:
+                return value
+            else:
+                return self.dead_people_per_tick
+            
         return self.dead_people_per_tick
     
     def get_job_speedup_multiplier(self, city: City) -> float:
         """Get the actual job speedup multiplier for this tick, using dynamic values if available."""
         if self.dynamic_job_speedup_multiplier is not None:
-            return self.dynamic_job_speedup_multiplier(city)
+            value = self.dynamic_job_speedup_multiplier(city)
+            if value is not None:
+                return value
+            else:
+                return self.job_speedup_multiplier
+            
         return self.job_speedup_multiplier
 
     def get_upgraded(self, upgrade_bonus: float) -> Effect:
@@ -226,12 +275,22 @@ class Effect(DataclassGameObject):
             New Effect instance with scaled values
         """
         upgrade_factor = 1 + upgrade_bonus
+        # Helper to safely wrap dynamic functions so we only multiply if the called value is not None
+        def _wrap_dyn(fn):
+            if fn is None:
+                return None
+            def _wrapped(city):
+                val = fn(city)
+                return val * upgrade_factor if val is not None else None
+            return _wrapped
+
+        # FIXME: There might be a better way to do this...
         return Effect(
             duration_in_ticks=self.duration_in_ticks,
             expendable_city_resources_per_tick=self.expendable_city_resources_per_tick * upgrade_factor,
             expendable_empire_resources_per_tick=self.expendable_empire_resources_per_tick * upgrade_factor,
-            expendable_city_resources_pct_increase=self.expendable_city_resources_pct_increase * upgrade_factor,
-            expendable_empire_resources_pct_increase=self.expendable_empire_resources_pct_increase * upgrade_factor,
+            expendable_city_resources_pct_increase=((self.expendable_city_resources_pct_increase) * upgrade_factor),
+            expendable_empire_resources_pct_increase=((self.expendable_empire_resources_pct_increase) * upgrade_factor),
             theoretical_new_employable_per_tick=self.theoretical_new_employable_per_tick * upgrade_factor,
             raw_morale_per_tick=self.raw_morale_per_tick * upgrade_factor,
             raw_efficiency_per_tick=self.raw_efficiency_per_tick * upgrade_factor,
@@ -240,19 +299,22 @@ class Effect(DataclassGameObject):
             city_hitpoint_regeneration_per_tick=int(self.city_hitpoint_regeneration_per_tick * upgrade_factor),
             expendable_city_resource_capacities_offered=self.expendable_city_resource_capacities_offered * upgrade_factor,
             population_capacity_offered=int(self.population_capacity_offered * upgrade_factor),
-            new_people_per_tick=int(self.new_people_per_tick * upgrade_factor),
+            theoretical_new_people_per_tick=self.theoretical_new_people_per_tick * upgrade_factor,
             dead_people_per_tick=int(self.dead_people_per_tick * upgrade_factor),
             max_lifespan_increase=int(self.max_lifespan_increase * upgrade_factor),
             capital_effect=self.capital_effect,
             specific_units_contingent_on=self.specific_units_contingent_on.copy(),
             job_speedup_multiplier=self.job_speedup_multiplier * upgrade_factor,
             contingency_check=self.contingency_check,
-            dynamic_expendable_city_resources_per_tick=lambda city: self.dynamic_expendable_city_resources_per_tick(city) * upgrade_factor,
-            dynamic_expendable_tempire_resources_per_tick=lambda city: self.dynamic_expendable_city_resources_per_tick(city) * upgrade_factor,
-            dynamic_theoretical_new_employable_per_tick=lambda city: self.dynamic_theoretical_new_employable_per_tick(city) * upgrade_factor,
-            dynamic_morale_per_tick=lambda city: self.dynamic_morale_per_tick(city) * upgrade_factor,
-            dynamic_raw_efficiency_per_tick=lambda city: self.dynamic_raw_efficiency_per_tick(city) * upgrade_factor,
-            dynamic_city_hitpoint_regeneration_per_tick=lambda city: self.dynamic_city_hitpoint_regeneration_per_tick(city) * upgrade_factor,
+            # safe-wrapped dynamic functions
+            dynamic_expendable_city_resources_per_tick=_wrap_dyn(self.dynamic_expendable_city_resources_per_tick),
+            dynamic_expendable_empire_resources_per_tick=_wrap_dyn(self.dynamic_expendable_empire_resources_per_tick),
+            dynamic_theoretical_new_employable_per_tick=_wrap_dyn(self.dynamic_theoretical_new_employable_per_tick),
+            dynamic_theoretical_new_people_per_tick=_wrap_dyn(self.dynamic_theoretical_new_people_per_tick),
+            dynamic_morale_per_tick=_wrap_dyn(self.dynamic_morale_per_tick),
+            dynamic_raw_efficiency_per_tick=_wrap_dyn(self.dynamic_raw_efficiency_per_tick),
+            dynamic_city_hitpoint_regeneration_per_tick=_wrap_dyn(self.dynamic_city_hitpoint_regeneration_per_tick),
+            effect_id=self.effect_id
             )
 
     def __repr__(self):
