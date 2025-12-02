@@ -9,7 +9,7 @@ raw (unbounded) and bounded display values.
 from math import floor, exp, tanh, atanh
 from random import seed, uniform
 from ..core.constants import MAX_MORALE, HALF_MORALE
-from ..systems.data import GameDataclass
+from .data import GameDataclass
 
 
 def new_value_given_morale(baseline: float, morale: float, k: float = 0.01) -> float:

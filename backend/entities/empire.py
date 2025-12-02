@@ -114,10 +114,16 @@ class Empire(GameObject, HasAllegianceMixin):
         # Apply ideology effects (universal and capital-exclusive)
         for ideological_effect in ideology.effects:
             self.add_universal_or_capital_effect(ideological_effect)
-
+        self.name = "New Empire"
     # ========== Properties ==========
     @property
     def cities(self) -> list[Empire]:
+        # check to see if cities still belong to 
+        # Empire. If a city is no longer part of empire,
+        # remove it from the empire's list of cities
+        for city in self._cities[:]: # iterate over a copy of the list to prevent modification during iteration
+            if city.allegiance != self:
+                self._cities.remove(city)
         return self._cities
 
     @property
@@ -152,7 +158,7 @@ class Empire(GameObject, HasAllegianceMixin):
         
         This is a computed property derived from the unbounded raw_efficiency value.
         """
-        print("raw efficiency", self._raw_efficiency)
+        # print("raw efficiency", self._raw_efficiency)
         return bounded_stat_from_raw(self._raw_efficiency)
     
     @private_client_property
@@ -204,6 +210,14 @@ class Empire(GameObject, HasAllegianceMixin):
         for ideological_effect in self._ideology.effects:
             city.add_effect(ideological_effect)
 
+        self.record_event(GameEvent(
+            type="new_city",
+            unix_timestamp=int(datetime.now().timestamp()),
+            description=f"City {city.name} has joined the empire.",
+            source='Empire',
+            triggered_by_ai=False # NOTE: When AI is capable of sending Settlers, this might need to be True sometimes
+        ))
+
     def remove_city(self, city: City) -> None:
         """
         Remove a city from this empire's control (declare independence).
@@ -211,7 +225,7 @@ class Empire(GameObject, HasAllegianceMixin):
         Args:
             city: The city to remove
         """
-        city.declare_independence()
+        # city.declare_independence()
         self._cities.remove(city)
 
     def set_city_as_capital(self, city: City) -> None:

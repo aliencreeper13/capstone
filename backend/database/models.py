@@ -293,7 +293,7 @@ class JobAssignment(Base):
 # GAME EVENTS & AUDIT TRAIL
 # ============================================================================
 
-class GameEvent(Base):
+class GameEventDB(Base):
     """Historical game event log."""
     __tablename__ = "game_events"
     

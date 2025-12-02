@@ -24,29 +24,43 @@ import uvicorn
 import sys
 
 
+desired_ideology_str = sys.argv[1]
 
 
-sys.path.insert(0, r'c:\Users\MrCheese\Desktop\Programming\Python\capstone') # TODO: Make it so that this temp fix isn't necessary
-from backend.unit_classes import buildings
-from backend.entities.city import City
-from backend.entities.empire import Empire
-from backend.entities.ideology import Monarchy, NeutralIdeology, Dictatorship
-from backend.gameplay.location import GameNode, WorldMap
-from backend.gameplay.game import Game
-from backend.systems.data import ExpendableCityResources
-from backend.systems.job_requirements import JobRequirements
-from backend.systems.job import CreationJob, DestructionJob, UpgradeJob
+# sys.path.insert(0, r'c:\Users\MrCheese\Desktop\Programming\Python\capstone') # TODO: Make it so that this temp fix isn't necessary
+from .systems.government_actions import SubsidyAction
+from .unit_classes import buildings
+from .entities.city import City
+from .entities.empire import Empire
+from .entities.ideology import Anarchy, Communism, Monarchy, NeutralIdeology, Dictatorship, Republic, Socialism, Theocracy
+from .gameplay.location import GameNode, WorldMap
+from .gameplay.game import Game
+from .systems.data import ExpendableCityResources
+from .systems.job_requirements import JobRequirements
+from .systems.job import CreationJob, DestructionJob, UpgradeJob
 
 
-from backend.entities.building import Building
+from .entities.building import Building
 
-# Import building classes from interactive_demo for creation
-from interactive_demo import (
-    Farm, Market, School, WoodcuttersCamp, Mine, 
-    Library, Temple, Housing, Granary, LumberYard,
-    University, Hospital
-)
-
+if desired_ideology_str.lower() == 'monarchy':
+    desired_ideology = Monarchy()
+elif desired_ideology_str.lower() == 'neutral':
+    desired_ideology = NeutralIdeology()
+elif desired_ideology_str == 'dictatorship':
+    desired_ideology = Dictatorship()
+elif desired_ideology_str.lower() == 'republic':
+    desired_ideology = Republic()
+elif desired_ideology_str.lower() == 'theocracy':
+    desired_ideology = Theocracy()
+elif desired_ideology_str.lower() == 'anarchy':
+    desired_ideology = Anarchy()
+elif desired_ideology_str.lower() == 'communism':
+    desired_ideology = Communism()
+elif desired_ideology_str.lower() == 'socialism':
+    desired_ideology = Socialism()
+else:
+    print("Invalid ideology argument.")
+    exit()
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -315,17 +329,17 @@ class GameServer:
             logger.info(f"    ✓ Game initialized")
             
             # Create ideology
-            ideology = Monarchy()
+            ideology = desired_ideology
             logger.info(f"    ✓ Neutral ideology created")
             
             # --- Step 2: Assign cities to generated nodes ---
             # Define city configurations with names and resources
             # We'll assign them to the first few nodes of the generated map
             city_configs = [
-                {"name": "Capitol", "size": 10, "pop": 500, "wealth": 100, "food": 100, "timber": 50, "metal": 50},
-                {"name": "Harbor Town", "size": 10, "pop": 400, "wealth": 80, "food": 120, "timber": 30, "metal": 20},
-                {"name": "Mountain Fort", "size": 10, "pop": 350, "wealth": 60, "food": 80, "timber": 20, "metal": 80},
-                {"name": "Forest Village", "size": 10, "pop": 250, "wealth": 50, "food": 150, "timber": 100, "metal": 10},
+                {"name": "Capitol", "size": 10, "pop": 90, "wealth": 100, "food": 100, "timber": 50, "metal": 50},
+                {"name": "Harbor Town", "size": 10, "pop": 50, "wealth": 80, "food": 120, "timber": 30, "metal": 20},
+                {"name": "Mountain Fort", "size": 10, "pop": 25, "wealth": 60, "food": 80, "timber": 20, "metal": 80},
+                {"name": "Forest Village", "size": 10, "pop": 15, "wealth": 50, "food": 150, "timber": 100, "metal": 10},
             ]
             
             # Ensure we don't try to create more cities than available nodes
@@ -877,7 +891,12 @@ class GameServer:
                 
                 # Apply the action's effect to the capital city
                 effect = matched_action.get_effect()
-                self.capital_city.add_effect(effect)
+                if effect.is_universal() or effect.capital_effect:
+                    self.user_empire.add_universal_or_capital_effect(effect)
+                else:
+                    if isinstance(matched_action, SubsidyAction):
+                        pass
+                    self.capital_city.add_effect(effect)
                 # self.capital_city._effects.append(effect)
                 
                 logger.info(f"[GOVERNMENT ACTION] {action_id} executed - Wealth cost: {wealth_cost} - Effect: {matched_action.description}")
@@ -953,9 +972,9 @@ class GameServer:
     def get_available_mobile_units(self, city_idx: Optional[int] = None) -> AvailableMobileUnitsData:
         """Get available mobile units (troops and passive units) for creation in a city."""
         with self.lock:
-            from backend.unit_classes.troops import Archer
-            from backend.unit_classes.passive_units import Settler
-            from backend.systems.job_requirements import ContingentOnInfo
+            from .unit_classes.troops import Archer
+            from .unit_classes.passive_units import Settler
+            from .systems.job_requirements import ContingentOnInfo
             
             city = self.all_user_cities[city_idx] if city_idx is not None else self.get_selected_city()
             if not city:
@@ -1028,9 +1047,9 @@ class GameServer:
     def create_mobile_unit(self, unit_type: str) -> Dict:
         """Create a mobile unit (troop or passive unit) in the selected city."""
         with self.lock:
-            from backend.unit_classes.troops import Archer
-            from backend.unit_classes.passive_units import Settler
-            from backend.systems.job import CreationJob
+            from .unit_classes.troops import Archer
+            from .unit_classes.passive_units import Settler
+            from .systems.job import CreationJob
             
             city = self.get_selected_city()
             if not city:

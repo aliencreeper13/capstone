@@ -10,8 +10,11 @@ The Game engine coordinates:
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 from time import sleep
+
+from ..gameplay.events import GameEvent
 
 from ..core.gameobject import GameObject, public_client_property
 from .location import GameNode
@@ -152,6 +155,14 @@ class Game(GameObject):
         
         # Mark the node as claimed
         node.claim_for_empire(empire)
+
+        empire.record_event(GameEvent(
+            type="city_founded",
+            unix_timestamp=int(datetime.now().timestamp()),
+            description=f"City established on node at {node.coords}.",
+            source='Game Engine',
+            triggered_by_ai=False
+        ))
 
     # ========== Game Lifecycle ==========
 

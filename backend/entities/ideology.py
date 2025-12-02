@@ -139,7 +139,7 @@ class Monarchy(Ideology):
             )
         ],
             autonomy=30,
-            government_actions=[TaxAction(intensity=2),               # moderate taxation
+            government_actions=[TaxAction(intensity=3),               # moderate taxation
                 PropagandaAction("patriotic")])  # Monarchical cities have lower autonomy
 
 
@@ -223,7 +223,7 @@ class Dictatorship(Ideology):
                 duration_in_ticks=0,
                 raw_morale_per_tick=-0.05,
                 expendable_city_resources_per_tick=ExpendableCityResources(
-                    wealth=10,
+                    wealth=2,
                     food=1,
                     timber=1,
                     metal=1

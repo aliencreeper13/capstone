@@ -31,6 +31,7 @@ EventType = Literal[
     "battle_tick", "battle_result", "city_captured", 
     "building_completed", "unit_created", 
     "resource_change", "custom", "job_submission", "upgrade_completed"
+    "city_founded", "new_city"
 ]
 """
 Valid event type classifications.
@@ -71,7 +72,7 @@ class GameEvent(DataclassGameObject):
         >>> from datetime import datetime
         >>> event = GameEvent(
         ...     type="resource_change",
-        ...     timestamp=int(datetime.now().timestamp()),
+        ...     unix_timestamp=int(datetime.now().timestamp()),
         ...     source="City",
         ...     description="Market produced 10 wealth",
         ...     data={"resource_type": "wealth", "amount": 10}
@@ -118,7 +119,7 @@ class GameEvent(DataclassGameObject):
         Example:
             >>> event = GameEvent(
             ...     type="building_completed",
-            ...     timestamp=datetime.now(),
+            ...     unix_timestamp=int(datetime.now().timestamp()),
             ...     source="City",
             ...     description="Market construction completed",
             ... )

@@ -23,6 +23,8 @@ from queue import Queue
 from datetime import datetime
 from random import random
 
+from ..gameplay.events import GameEvent
+
 
 
 from ..core.constants import (
@@ -1538,12 +1540,24 @@ class City(GameObject, HasAllegianceMixin):
         
         old_empire_name = self.allegiance.name if hasattr(self.allegiance, 'name') else 'their empire'
         print(f"✗ REVOLT: {self.name} has revolted against {old_empire_name}!")
-        
+        self.allegiance.record_event(GameEvent(
+                type='city_revolt',
+                unix_timestamp=int(datetime.now().timestamp()),
+                source='City',
+                description=f'{self.name} has revolted against their empire!',
+                data={'city_name': self.name},
+                triggered_by_ai=False
+            ))
+        # self.declare_independence()
         # Determine new empire: try previous allegiance, else create AI empire
         if self._previous_allegiance is not None:
             new_empire = self._previous_allegiance
             new_empire_name = new_empire.name if hasattr(new_empire, 'name') else 'the previous empire'
             print(f"  → {self.name} rejoins {new_empire_name}")
+            self.allegiance.remove_city(self)
+            self._allegiance = new_empire
+            new_empire.add_city(self)
+
         else:
             # Create new AI empire
             from .ideology import NeutralIdeology
@@ -1551,6 +1565,11 @@ class City(GameObject, HasAllegianceMixin):
             new_empire = Empire(autonomy=50, capital_city=self, ideology=NeutralIdeology())
             new_empire.assign_to_game(self.allegiance.game)
             print(f"  → {self.name} becomes capital of new AI empire")
+            new_empire.add_city(self)
+            self.allegiance.remove_city(self)
+            self._allegiance = new_empire
+            new_empire.assign_to_game(self.allegiance.game)
+            
         
         # Store current allegiance as previous before transfer
         self._previous_allegiance = self.allegiance
@@ -1558,6 +1577,9 @@ class City(GameObject, HasAllegianceMixin):
         # Transfer city to new empire
         old_empire = self.allegiance
         new_empire.add_city(self)
+        
+
+
         
         # Reset revolt countdown
         self._revolt_countdown = None

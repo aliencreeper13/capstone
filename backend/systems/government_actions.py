@@ -21,9 +21,9 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Optional
 from abc import ABC, abstractmethod
 
-from ..systems.game_utils import new_value_given_efficiency
+from .game_utils import new_value_given_efficiency
 
-from .effects import Effect
+from .effects import Effect, UniversalEffect
 from .data import ExpendableCityResources, ExpendableEmpireResources
 from ..core.constants import (
     TAX_INTENSITY_1_MORALE_PENALTY, TAX_INTENSITY_1_WEALTH_GAIN, TAX_INTENSITY_1_DURATION,
@@ -145,7 +145,7 @@ class TaxAction(GovernmentAction):
         tax_params = {
             1: {"morale_penalty": TAX_INTENSITY_1_MORALE_PENALTY, "wealth_gain": TAX_INTENSITY_1_WEALTH_GAIN, "duration": TAX_INTENSITY_1_DURATION, "cost": 10},
             2: {"morale_penalty": TAX_INTENSITY_2_MORALE_PENALTY, "wealth_gain": TAX_INTENSITY_2_WEALTH_GAIN, "duration": TAX_INTENSITY_2_DURATION, "cost": 30},
-            3: {"morale_penalty": TAX_INTENSITY_3_MORALE_PENALTY, "wealth_gain": TAX_INTENSITY_3_WEALTH_GAIN, "duration": TAX_INTENSITY_3_DURATION, "cost": 50},
+            3: {"morale_penalty": TAX_INTENSITY_3_MORALE_PENALTY, "wealth_gain": TAX_INTENSITY_3_WEALTH_GAIN, "duration": TAX_INTENSITY_3_DURATION, "cost": 100},
         }
         params = tax_params[intensity]
         
@@ -162,7 +162,7 @@ class TaxAction(GovernmentAction):
     
     def get_effect(self) -> Effect:
         """Create a temporary tax effect."""
-        return Effect(
+        return UniversalEffect(
             duration_in_ticks=self.duration_ticks,
             expendable_city_resources_per_tick=ExpendableCityResources(
                 wealth=self.wealth_gain
