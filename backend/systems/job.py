@@ -35,13 +35,14 @@ class Job(ABC):
         _unit_kwargs: Keyword args for unit instantiation
     """
     
-    def __init__(self, result: "Unit | type[Unit]", starting_level: int = 1, *unit_args, **unit_kwargs):
+    def __init__(self, result: "Unit | type[Unit]", starting_level: int = 1, triggered_by_ai: bool = False, *unit_args, **unit_kwargs):
         """
         Initialize a job.
         
         Args:
             result: Unit type (for creation) or Unit instance (for upgrade/destruction)
             starting_level: Level to initialize new unit at (only for mobile unit creation jobs)
+            triggered_by_ai: Whether the job was initiated by AI (default False)
             *unit_args: Positional arguments for unit instantiation
             **unit_kwargs: Keyword arguments for unit instantiation
             
@@ -74,6 +75,7 @@ class Job(ABC):
         self._result: "Unit | type[Unit]" = result
         self._unit_args = unit_args
         self._unit_kwargs = unit_kwargs
+        self._triggered_by_ai: bool = triggered_by_ai
         
         self._is_destruction: bool = False
         self._is_finished: bool = False
@@ -149,8 +151,9 @@ class Job(ABC):
                 unix_timestamp=int(datetime.now().timestamp()),
                 source="City",
                 description=f"Unit upgrade completed in {city.name}: {self._final_result.name}",
-                data={"city_name": city.name, "unit_type": self._final_result.name, "status": "completed"}
-        )
+                data={"city_name": city.name, "unit_type": self._final_result.name, "status": "completed"},
+                triggered_by_ai=self._triggered_by_ai
+            )
             # message = f"✓ Completed job: {job_name}"
             empire_of_city.record_event(event)
             
@@ -249,6 +252,10 @@ class Job(ABC):
             # Creation job, return starting level
             # TODO: If a building job, ensure that starting level is 1
             return self._starting_level
+    @property
+    def triggered_by_ai(self) -> bool:
+        """Return True if this job was initiated by AI actions."""
+        return self._triggered_by_ai
 
 
 class CreationJob(Job):
@@ -258,13 +265,14 @@ class CreationJob(Job):
     Takes a unit type and instantiates it after the required ticks.
     """
     
-    def __init__(self, result: type[Unit], starting_level: int = 1):
+    def __init__(self, result: type[Unit], starting_level: int = 1, triggered_by_ai: bool = False):
         """
         Initialize a creation job.
         
         Args:
             result: Unit type to instantiate (must be type, not instance)
             starting_level: Level to initialize the new unit at (default 1). However, buildings always start at level 1.
+            triggered_by_ai: Whether the job was initiated by AI (default False)
             
         Raises:
             ValueError: If result is not a type or not a Unit subclass
@@ -278,7 +286,7 @@ class CreationJob(Job):
         if not issubclass(result, Unit):
             raise ValueError(f"CreationJob type must be a subclass of Unit, got {result}")
         
-        super().__init__(result)
+        super().__init__(result, starting_level, triggered_by_ai)
 
 
 class UpgradeJob(Job):
@@ -288,12 +296,13 @@ class UpgradeJob(Job):
     Takes a unit instance and increases its level after the required ticks.
     """
     
-    def __init__(self, result: Unit):
+    def __init__(self, result: Unit, triggered_by_ai: bool = False):
         """
         Initialize an upgrade job.
         
         Args:
             result: Unit instance to upgrade
+            triggered_by_ai: Whether the job was initiated by AI (default False)
             
         Raises:
             ValueError: If result is not a Unit instance
@@ -303,7 +312,7 @@ class UpgradeJob(Job):
         
         if not isinstance(result, Unit):
             raise ValueError(f"UpgradeJob requires a Unit instance, not {type(result)}")
-        super().__init__(result)
+        super().__init__(result, triggered_by_ai=triggered_by_ai)
 
 
 class DestructionJob(Job):
@@ -313,12 +322,13 @@ class DestructionJob(Job):
     Removes the unit from the city after the required ticks.
     """
     
-    def __init__(self, result: Unit):
+    def __init__(self, result: Unit, triggered_by_ai: bool = False):
         """
         Initialize a destruction job.
         
         Args:
             result: Unit instance to destroy
+            triggered_by_ai: Whether the job was initiated by AI (default False)
             
         Raises:
             ValueError: If result is not a Unit instance
@@ -328,5 +338,5 @@ class DestructionJob(Job):
         
         if not isinstance(result, Unit):
             raise ValueError(f"DestructionJob requires a Unit instance, not {type(result)}")
-        super().__init__(result=result)
+        super().__init__(result=result, triggered_by_ai=triggered_by_ai)
         self._is_destruction = True

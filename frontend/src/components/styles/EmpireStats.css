@@ -38,7 +38,7 @@
 
 .info-card {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  color: rgb(30, 0, 165);
   padding: 12px;
   border-radius: 6px;
   display: flex;
@@ -46,10 +46,11 @@
   gap: 4px;
 }
 
-.info-label {
+.empire-info-label {
   font-size: 12px;
   opacity: 0.9;
   font-weight: 500;
+  color: rgb(197, 216, 21);
 }
 
 .info-value {

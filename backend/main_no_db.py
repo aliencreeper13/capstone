@@ -5,7 +5,7 @@ Provides REST API for browser-based gameplay.
 Behavior: Mimics playing from interactive_demo in terminal.
 Backend runs native game logic with in-memory state (no database).
 """
-
+# FIXME: HOLY CRAP THIS FILE IS OVER 2000 LINES
 import asyncio
 import threading
 import time
@@ -26,7 +26,7 @@ import sys
 
 
 
-sys.path.insert(0, r'c:\Users\MrCheese\Desktop\Programming\Python\capstone')
+sys.path.insert(0, r'c:\Users\MrCheese\Desktop\Programming\Python\capstone') # TODO: Make it so that this temp fix isn't necessary
 from backend.unit_classes import buildings
 from backend.entities.city import City
 from backend.entities.empire import Empire
@@ -95,6 +95,34 @@ class BuildingData(BaseModel):
     next_level_effect: BuildingEffectData = BuildingEffectData()  # Shows 4% bonus preview
     upgrade_cost: dict = {"food": 0, "timber": 0, "metal": 0, "wealth": 0}
 
+class UnitCompositionData(BaseModel):
+    """Details of a single unit in an army."""
+    type: str
+    count: int
+    name: str
+
+class ArmyData(BaseModel):
+    """Data for a single mobile unit group (army)."""
+    id: str
+    name: Optional[str] = None
+    units: List[UnitCompositionData]
+    unit_count: int
+    total_size: int
+    position: str
+    location_name: str
+    location: str
+    allegiance: Optional[str]
+    morale: Optional[float]
+    current_hp: float
+    max_hp: float
+    damage_per_tick: float
+    speed: float = 0
+    is_halted: bool = False
+    is_on_path: bool = False
+    path_position: Optional[float] = None
+    path_node1_coords: Optional[tuple[int, int]] = None
+    path_node2_coords: Optional[tuple[int, int]] = None
+
 class CityStateData(BaseModel):
     coords: tuple[int, int]
     name: str
@@ -103,9 +131,11 @@ class CityStateData(BaseModel):
     resource_capacities: ResourceData
     morale: float
     defense: float = 100
+    protection: float = 0
     hitpoints: float = 100
     max_hitpoints: float = 100
     buildings: List[BuildingData]
+    armies: List[ArmyData] = []
     space_used: int
     space_total: int
     max_space: int
@@ -117,6 +147,9 @@ class EmpireStateData(BaseModel):
     capital_name: str
     total_population: PopulationData
     total_resources: ResourceData
+    efficiency: float
+    score: float
+    num_cities: int
 
 class GameStateResponse(BaseModel):
     current_tick: int
@@ -138,6 +171,7 @@ class EventData(BaseModel):
     source: str
     description: str
     data: dict = {}
+    triggered_by_ai: bool = False
 
 class BuildingCreateRequest(BaseModel):
     building_type: str
@@ -185,22 +219,6 @@ class MobileUnitCreateRequest(BaseModel):
 # ============================================================================
 # PHASE 4: ARMY MOVEMENT MODELS
 # ============================================================================
-
-class UnitCompositionData(BaseModel):
-    """Details of a single unit in an army."""
-    unit_type: str
-    count: int
-    name: str
-
-class ArmyData(BaseModel):
-    """Data for a single mobile unit group (army)."""
-    id: str
-    units: List[UnitCompositionData]
-    total_size: int
-    position: str  # "at_node_{id}" or "on_path_{id}_{position}"
-    location_name: str
-    allegiance: Optional[str]
-    morale: Optional[float]
 
 class GameNodeData(BaseModel):
     """Data for a game node on the map."""
@@ -255,10 +273,10 @@ class GameServer:
     def __init__(self):
         # Native game objects (NOT database classes)
         self.game: Optional[Game] = None
-        self.empire: Optional[Empire] = None
+        self.user_empire: Optional[Empire] = None
         self.capital_city: Optional[City] = None
         self.worldmap: Optional[WorldMap] = None
-        self.all_cities: List[City] = []  # Track all cities
+        #self.all_user_cities: List[City] = []  # Track all cities
         self.selected_city_idx: int = 0   # Index of currently selected city
         
         # Server state
@@ -283,7 +301,7 @@ class GameServer:
             # This creates a 200x200 map with 8 randomly placed nodes, connected by non-intersecting paths
             self.worldmap = WorldMap.generate_random_map(
                 size=(200, 200),
-                num_nodes=8,
+                num_nodes=16,
                 min_distance_between_nodes=30,
                 node_sizes=15  # All nodes have size 15
             )
@@ -331,17 +349,46 @@ class GameServer:
                 if i == 0:
                     # First city is the capital
                     self.capital_city = city
-                    self.empire = Empire(autonomy=50, capital_city=self.capital_city, ideology=ideology)
-                    self.empire.name = "New Empire"
-                    self.empire.add_city(city)
-                    self.game.add_empire(self.empire)
+                    self.user_empire = Empire(autonomy=50, capital_city=self.capital_city, ideology=ideology)
+                    self.user_empire.name = "New Empire"
+                    self.user_empire.add_city(city)
+                    self.game.add_empire(self.user_empire)
                     logger.info(f"    ✓ Capital city created: {config['name']} at {node.coords}")
                 else:
                     # Additional cities
-                    self.empire.add_city(city)
+                    self.user_empire.add_city(city)
                     logger.info(f"    ✓ City created: {config['name']} at {node.coords}")
                 
-                self.all_cities.append(city)
+                # self.all_user_cities.append(city)
+            #
+            logger.info(f"    ✓ Creating enemy empire...")
+            enemy_ideology = Monarchy()
+            enemy_capital = None
+            enemy_cities = []
+            
+            for i, config in enumerate(city_configs):
+                node = nodes[4 + i]
+                enemy_city = City(gamenode=node, size=config["size"], morale=50.0)
+                enemy_city.name = f"Evil {config['name']}"
+                enemy_city._resources.wealth = config["wealth"]
+                enemy_city._resources.food = config["food"]
+                enemy_city._resources.timber = config["timber"]
+                enemy_city._resources.metal = config["metal"]
+                enemy_city._societal_resources.population.add_population(config["pop"])
+                enemy_city._societal_resources.population.add_employable(int(config["pop"] * 0.35))
+                
+                if i == 0:
+                    enemy_capital = enemy_city
+                
+                enemy_cities.append(enemy_city)
+                # self.all_user_cities.append(enemy_city)
+            
+            enemy_empire = Empire(autonomy=50, capital_city=enemy_capital, ideology=enemy_ideology)
+            enemy_empire.name = "Enemy Empire"
+            for enemy_city in enemy_cities:
+                enemy_empire.add_city(enemy_city)
+            self.game.add_empire(enemy_empire)
+            logger.info(f"    ✓ Enemy empire created with {len(enemy_cities)} cities")
             
         except Exception as e:
             logger.error(f"[ERROR] Failed to initialize game: {e}")
@@ -349,8 +396,16 @@ class GameServer:
             traceback.print_exc()
             raise
         
-        logger.info(f"[✓] Game server initialized successfully (NATIVE MODE) - {len(self.all_cities)} cities on {len(nodes)} nodes\n")
+        logger.info(f"[✓] Game server initialized successfully (NATIVE MODE) - {len(self.all_user_cities)} cities on {len(nodes)} nodes\n")
     
+    @property
+    def all_user_cities(self) -> list[City]:
+        """Get all cities belonging to the user's empire."""
+        if self.user_empire is None:
+            return []
+        # return self.user_empire.cities
+        return list(set(self.user_empire.cities)) # temp fix: Workaround duplicate references to capital city in empire
+
     def start_auto_tick(self):
         """Start auto-ticking in background thread."""
         self.is_running = True
@@ -375,7 +430,7 @@ class GameServer:
                     
                     if self.tick_count % 10 == 0:
                         # Log resource state for selected city
-                        city = self.all_cities[self.selected_city_idx] if self.all_cities else self.capital_city
+                        city = self.all_user_cities[self.selected_city_idx] if self.all_user_cities else self.capital_city
                         logger.info(f"[TICK {self.tick_count}] {city.name} Resources: "
                               f"F={city._resources.food:.0f}, "
                               f"T={city._resources.timber:.0f}, "
@@ -385,12 +440,16 @@ class GameServer:
                         # Log buildings
                         building_names = [b.__class__.__name__ for b in city._buildings]
                         
-                        troop_names = [u.__class__.name for u in city._troop_group._mobile_units]
+                        troop_names = []
+                        for army in city._gamenode._armies:
+                            for mobile_unit in army._mobile_units:
+                                troop_names.append(mobile_unit.name)
+                        # troop_names = [u.__class__.name for u in city._gamenode._armies]
                         logger.info(f"             Buildings: {building_names}")
                         logger.info(f"             Troops: {troop_names}")
                         logger.info(f"             Population: {city.total_population} ")
-                        logger.info(f"             Game Events: {city.allegiance.game_events}")
-                        logger.info(f"             Effects: {city._effects_with_ticks_left}")
+                        # logger.info(f"             Game Events: {city.allegiance.game_events}")
+                        # logger.info(f"             Effects: {city._effects_with_ticks_left}")
                         logger.info(f"             Available space: {city._available_space}")
                 time.sleep(tick_interval)
             except Exception as e:
@@ -431,17 +490,17 @@ class GameServer:
     
     def get_selected_city(self) -> City:
         """Get the currently selected city."""
-        if not self.all_cities or self.selected_city_idx >= len(self.all_cities):
+        if not self.all_user_cities or self.selected_city_idx >= len(self.all_user_cities):
             return self.capital_city
-        return self.all_cities[self.selected_city_idx]
+        return self.all_user_cities[self.selected_city_idx]
     
     def select_city(self, city_id: int) -> Dict:
         """Select a city by index."""
         with self.lock:
-            if city_id < 0 or city_id >= len(self.all_cities):
+            if city_id < 0 or city_id >= len(self.all_user_cities):
                 raise ValueError(f"Invalid city ID: {city_id}")
             self.selected_city_idx = city_id
-            city = self.all_cities[city_id]
+            city = self.all_user_cities[city_id]
             logger.info(f"[CITY SELECT] Switched to {city.name}")
             return {"status": "success", "city_id": city_id, "city_name": city.name}
     
@@ -449,7 +508,7 @@ class GameServer:
         """Get list of all cities with their basic info."""
         with self.lock:
             cities_data = []
-            for i, city in enumerate(self.all_cities):
+            for i, city in enumerate(self.all_user_cities):
                 cities_data.append({
                     "id": i,
                     "name": city.name,
@@ -472,7 +531,7 @@ class GameServer:
         This bridges the native game with the REST API.
         """
         with self.lock:
-            if not self.all_cities or not self.empire:
+            if not self.all_user_cities or not self.user_empire:
                 raise HTTPException(status_code=500, detail="Game not initialized")
             
             city = self.get_selected_city()
@@ -532,14 +591,19 @@ class GameServer:
             # Extract resource capacities from native City object
             capacities = city.expendable_resource_capacities
             
+            # Serialize armies in this city
+            armies_data = []
+            for army in city.gamenode.armies():
+                armies_data.append(self._serialize_army(army, city.gamenode))
+            
             # Serialize city state
             city_state = CityStateData(
                 coords=city.gamenode.coords,
                 name=city.name if hasattr(city, 'name') else "Capital",
                 population=PopulationData(
-                    total=total_pop,
-                    employable=employable,
-                    employed=employed
+                    total=int(total_pop),
+                    employable=int(employable),
+                    employed=int(employed)
                 ),
                 resources=ResourceData(
                     food=city._resources.food,
@@ -555,16 +619,20 @@ class GameServer:
                 ),
                 morale=city.morale,
                 buildings=buildings,
+                armies=armies_data,
                 space_used=sum(b.size for b in city._buildings),
                 space_total=city.size,
-                max_space=city._gamenode.size
+                max_space=city._gamenode.size,
+                defense=city.defense,
+                protection=city.protection,
+                
             )
             
             # Serialize empire state
             empire_state = EmpireStateData(
-                name=self.empire.name if hasattr(self.empire, 'name') else "Empire",
-                knowledge=self.empire.knowledge,
-                ideology=self.empire._ideology.__class__.__name__,
+                name=self.user_empire.name if hasattr(self.user_empire, 'name') else "Empire",
+                knowledge=self.user_empire.knowledge,
+                ideology=self.user_empire._ideology.__class__.__name__,
                 capital_name=city.name if hasattr(city, 'name') else "Capital",
                 total_population=PopulationData(
                     total=total_pop,
@@ -576,7 +644,10 @@ class GameServer:
                     timber=city._resources.timber,
                     metal=city._resources.metal,
                     wealth=city._resources.wealth
-                )
+                ),
+                efficiency=self.user_empire.efficiency,
+                score=self.user_empire.score,
+                num_cities=len(self.user_empire.cities)
             )
             
             return GameStateResponse(
@@ -728,10 +799,10 @@ class GameServer:
             if not source_city:
                 raise HTTPException(status_code=500, detail="City not initialized")
             
-            if target_city_id < 0 or target_city_id >= len(self.all_cities):
+            if target_city_id < 0 or target_city_id >= len(self.all_user_cities):
                 raise HTTPException(status_code=400, detail=f"Invalid target city ID: {target_city_id}")
             
-            target_city = self.all_cities[target_city_id]
+            target_city = self.all_user_cities[target_city_id]
             
             if source_city == target_city:
                 raise HTTPException(status_code=400, detail="Cannot transfer resources to the same city")
@@ -767,52 +838,35 @@ class GameServer:
                 logger.error(f"Error transferring resources: {e}")
                 raise HTTPException(status_code=400, detail=str(e))
     
+    # TODO: This method should be simplified by utilizing preexisting logic in Empire.execute_government_action
     def execute_government_action(self, action_id: str) -> Dict:
         """Execute a government action (costs wealth from capital)."""
         with self.lock:
-            if not self.capital_city:
-                raise HTTPException(status_code=500, detail="Capital city not initialized")
+            if not self.capital_city or not self.user_empire:
+                raise HTTPException(status_code=500, detail="Capital city or empire not initialized")
             
             try:
-                # Government actions are restricted to the capital city
-                action_effects = {
-                    "increase_tax": {
-                        "wealth_cost": 50,
-                        "effect": "wealth_production +20% for 50 ticks",
-                        "duration": 50
-                    },
-                    "decrease_tax": {
-                        "wealth_cost": 0,
-                        "effect": "morale +10 for 50 ticks",
-                        "duration": 50
-                    },
-                    "conscription": {
-                        "wealth_cost": 100,
-                        "effect": "Create 50 soldiers",
-                        "duration": 0
-                    },
-                    "population_incentive": {
-                        "wealth_cost": 80,
-                        "effect": "population growth +5% for 100 ticks",
-                        "duration": 100
-                    },
-                    "research_grant": {
-                        "wealth_cost": 150,
-                        "effect": "Knowledge +100",
-                        "duration": 0
-                    },
-                    "diplomatic_mission": {
-                        "wealth_cost": 120,
-                        "effect": "Diplomacy improved",
-                        "duration": 0
-                    }
-                }
+                # Find the matching government action from the ideology
+                ideology_actions = self.user_empire._ideology.government_actions
                 
-                if action_id not in action_effects:
+                matched_action = None
+                for act in ideology_actions:
+                    # Build the same id as in get_available_government_actions
+                    cls_name = type(act).__name__
+                    act_id = cls_name.lower()
+                    if hasattr(act, "intensity"):
+                        act_id += f"_{getattr(act, 'intensity')}"
+                    if hasattr(act, "campaign_type"):
+                        act_id += f"_{getattr(act, 'campaign_type')}"
+                    
+                    if act_id == action_id:
+                        matched_action = act
+                        break
+                
+                if not matched_action:
                     raise ValueError(f"Unknown government action: {action_id}")
                 
-                action = action_effects[action_id]
-                wealth_cost = action["wealth_cost"]
+                wealth_cost = matched_action.cost_wealth(game_server.user_empire.efficiency)
                 
                 # Check if capital has enough wealth
                 if self.capital_city._resources.wealth < wealth_cost:
@@ -821,25 +875,18 @@ class GameServer:
                 # Deduct wealth from capital
                 self.capital_city._resources.wealth -= wealth_cost
                 
-                # Apply action effects
-                if action_id == "increase_tax":
-                    # Wealth production would be handled by effects in next tick
-                    pass
-                elif action_id == "decrease_tax":
-                    self.capital_city._morale += 10
-                elif action_id == "population_incentive":
-                    # Population growth would be handled by effects in next tick
-                    pass
-                elif action_id == "research_grant":
-                    self.empire.knowledge += 100
+                # Apply the action's effect to the capital city
+                effect = matched_action.get_effect()
+                self.capital_city.add_effect(effect)
+                # self.capital_city._effects.append(effect)
                 
-                logger.info(f"[GOVERNMENT ACTION] {action_id} executed - Wealth: {wealth_cost} - Effect: {action['effect']}")
+                logger.info(f"[GOVERNMENT ACTION] {action_id} executed - Wealth cost: {wealth_cost} - Effect: {matched_action.description}")
                 
                 return {
                     "status": "success",
                     "action": action_id,
                     "wealth_cost": wealth_cost,
-                    "effect": action["effect"]
+                    "effect": matched_action.description
                 }
                 
             except Exception as e:
@@ -849,7 +896,7 @@ class GameServer:
     def get_city_jobs(self, city_idx: Optional[int] = None) -> List[JobData]:
         """Get active jobs for a city."""
         with self.lock:
-            city = self.all_cities[city_idx] if city_idx is not None else self.get_selected_city()
+            city = self.all_user_cities[city_idx] if city_idx is not None else self.get_selected_city()
             if not city:
                 raise HTTPException(status_code=500, detail="City not initialized")
             
@@ -884,11 +931,11 @@ class GameServer:
     def get_recent_events(self, limit: int = 50) -> List[EventData]:
         """Get recent game events from the empire."""
         with self.lock:
-            if not self.empire:
+            if not self.user_empire:
                 raise HTTPException(status_code=500, detail="Empire not initialized")
             
             # Get events from empire and convert to EventData
-            events_list = self.empire.get_recent_events(count=limit)
+            events_list = self.user_empire.get_recent_events(count=limit)
             events = []
             for event in events_list:
                 event_data = EventData(
@@ -896,7 +943,8 @@ class GameServer:
                     unix_timestamp=event.unix_timestamp,
                     source=event.source,
                     description=event.description,
-                    data=event.data
+                    data=event.data,
+                    triggered_by_ai=event.triggered_by_ai
                 )
                 events.append(event_data)
             
@@ -909,7 +957,7 @@ class GameServer:
             from backend.unit_classes.passive_units import Settler
             from backend.systems.job_requirements import ContingentOnInfo
             
-            city = self.all_cities[city_idx] if city_idx is not None else self.get_selected_city()
+            city = self.all_user_cities[city_idx] if city_idx is not None else self.get_selected_city()
             if not city:
                 raise HTTPException(status_code=500, detail="City not initialized")
             
@@ -1059,7 +1107,7 @@ class GameServer:
         units = []
         for unit_type, count in units_dict.items():
             units.append(UnitCompositionData(
-                unit_type=unit_type,
+                type=unit_type,
                 count=count,
                 name=getattr(unit.__class__, 'name', unit_type)
             ))
@@ -1068,18 +1116,32 @@ class GameServer:
         if gamenode:
             position = self._get_node_id(gamenode)
             location_name = gamenode.city.name if gamenode.has_city else f"Node ({gamenode.x}, {gamenode.y})"
+            location = location_name
         else:
             position = f"unknown"
             location_name = "Unknown"
+            location = "Unknown"
+        
+        # Get combat attributes
+        current_attrs = army.current_attributes
         
         return ArmyData(
             id=self._get_army_id(army),
+            name=f"Army {self._get_army_id(army)[:8]}",
             units=units,
+            unit_count=len(army._mobile_units),
             total_size=len(army._mobile_units),
             position=position,
             location_name=location_name,
+            location=location,
             allegiance=army._allegiance.name if army._allegiance else None,
-            morale=None  # TODO: add morale tracking
+            morale=current_attrs.morale if current_attrs else 50.0,
+            current_hp=current_attrs.hitpoints if current_attrs else 0,
+            max_hp=current_attrs.hitpoints if current_attrs else 0,
+            damage_per_tick=current_attrs.damage_per_tick if current_attrs else 0,
+            speed=current_attrs.speed if current_attrs else 0,
+            is_halted=getattr(army, '_is_halted', False),
+            is_on_path=False
         )
     
     def _serialize_army_on_path(self, army, path, position: float) -> ArmyData:
@@ -1092,7 +1154,7 @@ class GameServer:
         units = []
         for unit_type, count in units_dict.items():
             units.append(UnitCompositionData(
-                unit_type=unit_type,
+                type=unit_type,
                 count=count,
                 name=getattr(unit.__class__, 'name', unit_type)
             ))
@@ -1101,14 +1163,29 @@ class GameServer:
         n2_coords = path._game_node2.coords
         position_str = f"path_{n1_coords[0]}_{n1_coords[1]}_to_{n2_coords[0]}_{n2_coords[1]}"
         
+        # Get combat attributes
+        current_attrs = army.current_attributes
+        
         return ArmyData(
             id=self._get_army_id(army),
+            name=f"Army {self._get_army_id(army)[:8]}",
             units=units,
+            unit_count=len(army._mobile_units),
             total_size=len(army._mobile_units),
             position=f"{position_str}@{position:.1f}",
             location_name=f"En route ({position:.1f}/{path.distance:.1f})",
+            location=f"Traveling",
             allegiance=army._allegiance.name if army._allegiance else None,
-            morale=None
+            morale=current_attrs.morale if current_attrs else 50.0,
+            current_hp=current_attrs.hitpoints if current_attrs else 0,
+            max_hp=current_attrs.hitpoints if current_attrs else 0,
+            damage_per_tick=current_attrs.damage_per_tick if current_attrs else 0,
+            speed=current_attrs.speed if current_attrs else 0,
+            is_halted=getattr(army, '_is_halted', False),
+            is_on_path=True,
+            path_position=position,
+            path_node1_coords=n1_coords,
+            path_node2_coords=n2_coords
         )
     
     def get_map_structure(self) -> MapStructureData:
@@ -1251,7 +1328,8 @@ class GameServer:
             
             # Move army onto the path
             try:
-                source_army.get_on_path(path)
+                source_army.get_on_path_and_start_moving(path)
+                
                 logger.info(f"[MOVEMENT] Army moved from {source_node.coords} to path toward {dest_node.coords}")
                 return {
                     "status": "success",
@@ -1263,6 +1341,112 @@ class GameServer:
             except Exception as e:
                 logger.error(f"Error moving army: {e}")
                 raise HTTPException(status_code=400, detail=str(e))
+    
+    def halt_army(self, army_id: str) -> Dict:
+        """Halt an army's movement on a path."""
+        with self.lock:
+            if not self.worldmap:
+                raise HTTPException(status_code=500, detail="World map not initialized")
+            
+            # Find the army
+            source_army = None
+            for path_key, path in self.worldmap.get_paths().items():
+                if army_id in [self._get_army_id(a) for a in path._armies_and_coords.keys()]:
+                    for army in path._armies_and_coords.keys():
+                        if self._get_army_id(army) == army_id:
+                            source_army = army
+                            break
+                if source_army:
+                    break
+            
+            if not source_army:
+                raise HTTPException(status_code=404, detail=f"Army not found on path: {army_id}")
+            
+            if not source_army.on_path():
+                raise HTTPException(status_code=400, detail="Army is not on a path")
+            
+            # Halt the army
+            source_army._is_halted = True
+            logger.info(f"[MOVEMENT] Army {army_id} halted")
+            return {
+                "status": "success",
+                "message": "Army halted",
+                "army_id": army_id
+            }
+    
+    def resume_army(self, army_id: str) -> Dict:
+        """Resume an army's movement on a path."""
+        with self.lock:
+            if not self.worldmap:
+                raise HTTPException(status_code=500, detail="World map not initialized")
+            
+            # Find the army
+            source_army = None
+            for path_key, path in self.worldmap.get_paths().items():
+                if army_id in [self._get_army_id(a) for a in path._armies_and_coords.keys()]:
+                    for army in path._armies_and_coords.keys():
+                        if self._get_army_id(army) == army_id:
+                            source_army = army
+                            break
+                if source_army:
+                    break
+            
+            if not source_army:
+                raise HTTPException(status_code=404, detail=f"Army not found on path: {army_id}")
+            
+            if not source_army.on_path():
+                raise HTTPException(status_code=400, detail="Army is not on a path")
+            
+            # Resume the army
+            source_army._is_halted = False
+            logger.info(f"[MOVEMENT] Army {army_id} resumed")
+            return {
+                "status": "success",
+                "message": "Army resumed",
+                "army_id": army_id
+            }
+    
+    def reverse_army(self, army_id: str) -> Dict:
+        """Reverse an army's direction on a path."""
+        with self.lock:
+            if not self.worldmap:
+                raise HTTPException(status_code=500, detail="World map not initialized")
+            
+            # Find the army
+            source_army = None
+            source_path = None
+            for path_key, path in self.worldmap.get_paths().items():
+                if army_id in [self._get_army_id(a) for a in path._armies_and_coords.keys()]:
+                    for army in path._armies_and_coords.keys():
+                        if self._get_army_id(army) == army_id:
+                            source_army = army
+                            source_path = path
+                            break
+                if source_army:
+                    break
+            
+            if not source_army:
+                raise HTTPException(status_code=404, detail=f"Army not found on path: {army_id}")
+            
+            if not source_army.on_path():
+                raise HTTPException(status_code=400, detail="Army is not on a path")
+            
+            # Reverse the army
+            current_position = source_path._armies_and_coords[source_army]
+            new_position = source_path.distance - current_position
+            source_path._armies_and_coords[source_army] = new_position
+            
+            if not hasattr(source_army, '_direction_reversed'):
+                source_army._direction_reversed = False
+            source_army._direction_reversed = not source_army._direction_reversed
+            
+            logger.info(f"[MOVEMENT] Army {army_id} reversed at position {current_position}")
+            return {
+                "status": "success",
+                "message": "Army direction reversed",
+                "army_id": army_id,
+                "new_position": new_position
+            }
 
 # ============================================================================
 # FASTAPI APP
@@ -1349,6 +1533,7 @@ async def expand_city(request: CityExpandRequest):
 @app.post("/api/city/transfer")
 async def transfer_resources(request: ResourceTransferRequest):
     """Transfer resources from the selected city to a target city."""
+    
     result = game_server.transfer_resources(
         target_city_id=request.target_city_id,
         food=request.food,
@@ -1551,6 +1736,42 @@ async def move_army(army_id: str, request: ArmyMovementRequest):
         logger.error(f"Error moving army: {e}")
         raise HTTPException(status_code=400, detail=str(e))
 
+@app.post("/api/armies/{army_id}/halt")
+async def halt_army(army_id: str):
+    """Halt an army's movement on a path."""
+    try:
+        result = game_server.halt_army(army_id)
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error halting army: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/armies/{army_id}/resume")
+async def resume_army(army_id: str):
+    """Resume an army's movement on a path."""
+    try:
+        result = game_server.resume_army(army_id)
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error resuming army: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/armies/{army_id}/reverse")
+async def reverse_army(army_id: str):
+    """Reverse an army's direction on a path."""
+    try:
+        result = game_server.reverse_army(army_id)
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error reversing army: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+
 # ============================================================================
 # GAME INFO ENDPOINTS
 # ============================================================================
@@ -1587,7 +1808,7 @@ async def get_game_info():
         "status": "running" if game_server.is_running else "stopped",
         "note": "Running native capstone game logic. No database persistence.",
         "version": "1.0.0-native",
-        "empire_name": game_server.empire.name if game_server.empire else None,
+        "empire_name": game_server.user_empire.name if game_server.user_empire else None,
         "capital_name": game_server.capital_city.name if game_server.capital_city else None,
     }
 
@@ -1615,7 +1836,7 @@ async def get_worldmap_data():
         worldmap = game_server.worldmap
         
         # Get all cities (player's empire)
-        player_empire = game_server.empire
+        player_empire = game_server.user_empire
         player_cities = {city.gamenode.coords: city for city in player_empire.cities} if player_empire else {}
         
         # Build node data
@@ -1678,76 +1899,60 @@ async def get_map_visualization():
 # ============================================================================
 
 class GovernmentActionRequest(BaseModel):
-    action_type: str
-    wealth_cost: Optional[int] = None
-
+    action_id: str
+# ...existing code...
 @app.get("/api/government/available-actions")
 async def get_available_government_actions():
-    """Get available government actions."""
-    return {
-        "actions": [
-            {
-                "id": "increase_tax",
-                "name": "Increase Tax Rate",
-                "description": "Increase tax collection from all cities",
-                "icon": "💰",
-                "cost_wealth": 50,
-                "effect": "Wealth production +20% for 50 ticks",
-                "category": "tax"
-            },
-            {
-                "id": "decrease_tax",
-                "name": "Decrease Tax Rate",
-                "description": "Reduce tax burden on citizens",
-                "icon": "💸",
-                "cost_wealth": 0,
-                "effect": "Morale +10 across all cities for 50 ticks",
-                "category": "tax"
-            },
-            {
-                "id": "conscription",
-                "name": "Conscription",
-                "description": "Convert eligible population to military units",
-                "icon": "⚔️",
-                "cost_wealth": 100,
-                "effect": "Create 50 soldiers in capital city",
-                "category": "population"
-            },
-            {
-                "id": "population_incentive",
-                "name": "Population Incentive",
-                "description": "Encourage population growth in capital",
-                "icon": "👥",
-                "cost_wealth": 80,
-                "effect": "Population growth +5% for 100 ticks",
-                "category": "population"
-            },
-            {
-                "id": "research_grant",
-                "name": "Research Grant",
-                "description": "Fund scientific research",
-                "icon": "🔬",
-                "cost_wealth": 150,
-                "effect": "Knowledge +100, unlock advanced buildings",
-                "category": "research"
-            },
-            {
-                "id": "diplomatic_mission",
-                "name": "Diplomatic Mission",
-                "description": "Send diplomatic envoys (future feature)",
-                "icon": "🕊️",
-                "cost_wealth": 120,
-                "effect": "Improve relations with other empires",
-                "category": "diplomacy"
-            }
-        ]
-    }
+    """Get available government actions for the current empire/ideology."""
+    try:
+        with game_server.lock:
+            if not game_server.user_empire or not game_server.user_empire._ideology:
+                # Fallback to empty list if no empire/ideology initialized
+                return {"actions": []}
+
+            # Determine an efficiency value to present cost estimates with.
+            efficiency = game_server.user_empire.efficiency
+
+            ideology_actions = game_server.user_empire._ideology.government_actions
+
+            actions = []
+            for act in ideology_actions:
+                cls_name = type(act).__name__
+                act_id = cls_name.lower()
+                if hasattr(act, "intensity"):
+                    act_id += f"_{getattr(act, 'intensity')}"
+                if hasattr(act, "campaign_type"):
+                    act_id += f"_{getattr(act, 'campaign_type')}"
+                # Normalize fields for frontend, call cost_wealth as function with efficiency
+                try:
+                    cost_val = act.cost_wealth(efficiency)
+                except Exception:
+                    # fallback if something unexpected
+                    cost_val = getattr(act, "_cost_wealth", 0)
+                    # print("something went wrongg")
+
+                actions.append({
+                    "id": act_id,
+                    "name": getattr(act, "name", cls_name),
+                    "description": getattr(act, "description", ""),
+                    "icon": getattr(act, "icon", None) or "",
+                    "cost_wealth": cost_val,
+                    "duration_ticks": getattr(act, "duration_ticks", 0),
+                    "effect": getattr(act, "description", ""),
+                    "category": getattr(act, "category", "government")
+                })
+
+            return {"actions": actions}
+    except Exception as e:
+        logger.error(f"Error getting government actions: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+# ...existing code...
 
 @app.post("/api/government/action")
 async def execute_government_action(request: GovernmentActionRequest):
     """Execute a government action (costs wealth from capital)."""
     try:
-        result = game_server.execute_government_action(request.action_type)
+        result = game_server.execute_government_action(request.action_id)
         return result
     except HTTPException:
         raise
@@ -1789,10 +1994,16 @@ if __name__ == "__main__":
     print("Persistence: In-memory only (game state lost on server restart)")
     print("Behavior: Like playing from interactive_demo terminal, but via HTTP/WebSocket")
     print("=" * 80 + "\n")
-    
+    # Disable HTTP access logs from uvicorn (keeps your app logger output)
+    import logging
+    logging.getLogger("uvicorn.access").disabled = True
+    # Optionally raise uvicorn.error / fastapi logger levels to reduce noise:
+    logging.getLogger("uvicorn.error").setLevel(logging.WARNING)
+    logging.getLogger("fastapi").setLevel(logging.WARNING)
     uvicorn.run(
         app,
         host="0.0.0.0",
         port=8000,
-        log_level="info"
+        log_level="info",
+        access_log=False
     )

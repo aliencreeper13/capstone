@@ -123,7 +123,8 @@ class Game(GameObject):
             
             # Check if any empire has 10+ settlers on this node
             for empire, settler_count in settler_groups.items():
-                if settler_count >= 10 and empire is not None:
+                if settler_count >= 1 and empire is not None:
+                    print("SETTLING NEW CITY")
                     self._settle_node_as_city(node, empire)
                     break  # Only one empire can settle per node per tick
 

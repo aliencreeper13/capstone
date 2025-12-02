@@ -40,7 +40,7 @@ const ResourceCapacity: React.FC<Props> = ({ city }) => {
               <div className="resource-header">
                 <span className="resource-name">{resource.name}</span>
                 <span className="resource-values">
-                  {Math.round(resource.current)}/{Math.round(resource.max)}
+                  {Math.floor(resource.current)}/{Math.floor(resource.max)}
                 </span>
               </div>
               

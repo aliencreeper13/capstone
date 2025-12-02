@@ -138,7 +138,8 @@ class Unit(GameObject, HasJobRequirementsMixin, ABC):
         # Apply upgrade bonus to city if unit is assigned to one
         if self._city is not None:
             # Create an upgrade bonus effect: 4% per level above 1
-            upgrade_bonus = (self._level - 1) * (bonus_pct / 100)
+            # upgrade_bonus = (self._level - 1) * (bonus_pct / 100)
+            upgrade_bonus = (bonus_pct / 100)
             
             # Scale the base effect by the upgrade bonus
             upgrade_effect = self.effect.get_upgraded(upgrade_bonus=upgrade_bonus)

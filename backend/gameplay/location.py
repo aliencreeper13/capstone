@@ -432,6 +432,7 @@ class Path(GameObject):
         # Place army at the starting position on the path
         if from_node is self._game_node1:
             self._armies_and_coords.update({army: self.min_position})
+            
         elif from_node is self._game_node2:
             self._armies_and_coords.update({army: self.max_position})
 
@@ -444,6 +445,15 @@ class Path(GameObject):
         """
         del self._armies_and_coords[army]
 
+    @property
+    def gamenode1(self) -> GameNode:
+        """Get the first game node connected by this path."""
+        return self._game_node1
+    
+    @property
+    def gamenode2(self) -> GameNode:
+        """Get the second game node connected by this path."""
+        return self._game_node2
 
 class GameNode(GameObject):
     """

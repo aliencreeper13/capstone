@@ -63,10 +63,10 @@ const CityViewer: React.FC = () => {
         </div>
         <div style={styles.resources}>
           <strong>Resources:</strong>
-          <div>🍞 Food: {resources.food}</div>
-          <div>🪓 Timber: {resources.timber}</div>
-          <div>⛏️ Metal: {resources.metal}</div>
-          <div>💰 Wealth: {resources.wealth}</div>
+          <div>🍞 Food: {Math.floor(resources.food)}</div>
+          <div>🪓 Timber: {Math.floor(resources.timber)}</div>
+          <div>⛏️ Metal: {Math.floor(resources.metal)}</div>
+          <div>💰 Wealth: {Math.floor(resources.wealth)}</div>
         </div>
       </div>
 

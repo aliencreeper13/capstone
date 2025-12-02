@@ -8,14 +8,13 @@ import { GameState } from "../types/gameState";
 import { GameApiService } from "../services/gameApi";
 import EmpireStats from "./EmpireStats";
 import CitySwitcher from "./CitySwitcher";
-import TabContainer, { TabDefinition } from "./TabContainer";
+import TabContainer from "./TabContainer";
 import CityOverview from "./CityOverview";
 import BuildingUpgrades from "./BuildingUpgrades";
-import WorldMapView from "./WorldMapView";
 import GovernmentActions from "./GovernmentActions";
 import EventFeed from "./EventFeed";
 import TroopCreation from "./TroopCreation";
-import WorldMapViewer from "./WorldMapViewer";
+import ArmiesTab from "./ArmiesTab";
 import "./styles/GameBoard.css";
 
 interface Props {
@@ -29,32 +28,27 @@ const GameBoard: React.FC<Props> = ({ pollInterval = 1000, useMockData = false }
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const [, setNeedsRefresh] = useState(false);
-  const [jobs, setJobs] = useState<any[]>([]);
   const [events, setEvents] = useState<any[]>([]);
   const [isTroopCreationOpen, setIsTroopCreationOpen] = useState(false);
   const unsubscribeRef = useRef<(() => void) | null>(null);
 
-  // Fetch jobs and events periodically
+  // Fetch events periodically
   useEffect(() => {
-    const fetchJobsAndEvents = async () => {
+    const fetchEvents = async () => {
       if (useMockData) return;
       try {
-        const [jobsData, eventsData] = await Promise.all([
-          GameApiService.getCityJobs(),
-          GameApiService.getGameEvents(50),
-        ]);
-        setJobs(jobsData);
+        const eventsData = await GameApiService.getGameEvents(50);
         setEvents(eventsData);
       } catch (err) {
-        console.error("Failed to fetch jobs/events:", err);
+        console.error("Failed to fetch events:", err);
       }
     };
 
     // Fetch immediately
-    fetchJobsAndEvents();
+    fetchEvents();
 
     // Set up periodic polling
-    const interval = setInterval(fetchJobsAndEvents, pollInterval);
+    const interval = setInterval(fetchEvents, pollInterval);
 
     return () => clearInterval(interval);
   }, [pollInterval, useMockData]);
@@ -195,10 +189,10 @@ const GameBoard: React.FC<Props> = ({ pollInterval = 1000, useMockData = false }
                 content: <CityOverview city={selected_city} />,
               },
               {
-                id: "world-map",
-                label: "World Map",
-                icon: "🌍",
-                content: <WorldMapViewer />,
+                id: "armies",
+                label: "Armies",
+                icon: "🎖️",
+                content: <ArmiesTab />,
               },
               {
                 id: "buildings",

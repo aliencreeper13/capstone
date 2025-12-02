@@ -68,30 +68,104 @@ class MobileUnitGroup(GameObject):
         _path_position: Position along current path (0.0-1.0)
     """
     
-    def __init__(self, allegiance: Optional[Empire]):
+    def __init__(self, allegiance: Optional[Empire], initial_gamenode: GameNode):
         """Initialize empty mobile unit group for an empire."""
         super().__init__()
         self._allegiance: Optional[Empire] = allegiance
         self._mobile_units: list[MobileUnit] = []
-        self._gamenode: Optional[GameNode] = None
+        self._gamenode: Optional[GameNode] = initial_gamenode
         self._path: Optional[Path] = None
         self._path_position: Optional[float] = 0.0
+        self._moving_on_path: bool = False # Indicates if the group is currently moving
+        self._current_direction: Optional[PathDirection] = None # Current movement direction on path
+        if allegiance is not None:
+            allegiance.add_mobile_unit_group(self)
+    @property
+    def id(self) -> str:
+        """Get unique identifier for this mobile unit group."""
+        return f"{self.__class__.__name__}_{id(self)}"
+    
+    def start_moving(self, direction: Optional[PathDirection] = None):
+        """
+        Begin moving the mobile unit group along its current path
+        Args:
+            direction: Direction to move (FORWARDS or BACKWARDS). If None, continues in current direction.
+        """
+        if not self.on_path():
+            return 
+            # raise IllegalMoveException("Cannot start moving: Mobile unit group is not on a path.")
+        
+        self._moving_on_path = True
+        if direction is not None:
+            self._current_direction = direction
+
+        print(f"Army {self.id} started moving {'forwards' if self._current_direction == PathDirection.FORWARDS else 'backwards'}.")
+
+    def stop_moving(self):
+        """Stop moving the mobile unit group along its current path."""
+        self._moving_on_path = False
+        print(f"Army {self.id} stopped moving.")
+
+    def reverse_direction(self):
+        """Reverse the current movement direction of the mobile unit group."""
+        if not self.on_path():
+            return 
+            # raise IllegalMoveException("Cannot reverse direction: Mobile unit group is not on a path.")
+        
+        if self._current_direction == PathDirection.FORWARDS:
+            self._current_direction = PathDirection.BACKWARDS
+        elif self._current_direction == PathDirection.BACKWARDS:
+            self._current_direction = PathDirection.FORWARDS
+        else:
+            raise BadDirectionException("Current direction is not set; cannot reverse.")
+    def update(self, ticks: int = 1):
+        """Update mobile unit group state each tick."""
+        if not self._moving_on_path:
+            return 
+        if not self.on_path():
+            return
+        
+        assert self._current_direction is not None, "Current direction must be set when moving."
+        
+        self.move_one_step_along_path(self._current_direction)
 
     def in_gamenode(self) -> bool:
         """Return True if army is currently in a game node (city)."""
         return self._gamenode is not None and isinstance(self._gamenode, GameNode)
 
     def on_path(self) -> bool:
-        """Return True if army is currently traveling on a path."""
+        """Return True if army is currently on a path."""
         return self._path is not None and isinstance(self._path, Path)
 
     def get_on_path(self, path: Path):
         """Move army from current game node onto a path."""
+        print("Attempting to get on path...")
         if self.in_gamenode():
+            previous_gamenode = self._gamenode
             self._gamenode.remove_army(self)
             path.add_army(army=self, from_node=self._gamenode)
             self._path = path
             self._gamenode = None
+            
+            # determine which direction army should start off with
+            if path.gamenode1 is previous_gamenode:
+                self._current_direction = PathDirection.FORWARDS
+                destination_gamenode = path.gamenode2
+            else:
+                self._current_direction = PathDirection.BACKWARDS
+                destination_gamenode = path.gamenode1
+            print(f"Army {self.id} departed from game node {previous_gamenode.coords} onto path which leads to {destination_gamenode.coords}.")
+        else:
+            print(f"Army {self.id} is not in a game node; cannot get on path.")
+    def get_on_path_and_start_moving(self, path: Path):
+        """Move army from current game node onto a path and start moving."""
+        self.get_on_path(path)
+        
+        if self.on_path():
+            self.start_moving()
+        else:
+            print(f"Army {self.id} could not get on path; cannot start moving.")
+            
 
     def get_on_gamenode(self, gamenode: GameNode):
         """Move army from current path into a game node."""
@@ -100,8 +174,10 @@ class MobileUnitGroup(GameObject):
             gamenode.add_army(self)
             self._gamenode = gamenode
             self._path = None
+            self.stop_moving()
+            print(f"Army {self.id} arrived at game node {gamenode.coords}.")
 
-    def move_along_path(self, path_direction: PathDirection):
+    def move_one_step_along_path(self, path_direction: PathDirection):
         """
         Move army along path in given direction.
         
@@ -113,12 +189,16 @@ class MobileUnitGroup(GameObject):
             IllegalMoveException: If army is not on a path
         """
         if self.on_path():
-            if path_direction.FORWARDS:
+            # In Path.move_army, if the army reaches the end, it is removed from the path and added to the game node
+            if path_direction == PathDirection.FORWARDS:
                 self._path.move_army(army=self, delta=+self.speed)
-            elif path_direction.BACKWARDS:
+            elif path_direction == PathDirection.BACKWARDS:
                 self._path.move_army(army=self, delta=-self.speed)
             else:
                 raise BadDirectionException()
+            print(f"Army {self.id} moved along path towards {'FORWARDS' if path_direction == PathDirection.FORWARDS else 'BACKWARDS'}.")
+
+            
 
     def add_mobile_unit(self, mobile_unit: MobileUnit):
         """
@@ -237,6 +317,7 @@ class MobileUnitGroup(GameObject):
     def set_allegiance(self, empire: Empire):
         """Set the empire this group serves."""
         self._allegiance = empire
+        self._allegiance.add_mobile_unit_group(self)
     
     def has_unit(self, mobile_unit: MobileUnit) -> bool:
         """Return True if group contains the given mobile unit."""
@@ -257,7 +338,7 @@ class MobileUnitGroup(GameObject):
             BadAllegianceException: If any unit has different allegiance
             IllegalMoveException: If any unit is not in this group
         """
-        new_group = MobileUnitGroup(allegiance=self._allegiance)
+        new_group = MobileUnitGroup(allegiance=self._allegiance, initial_gamenode=self._gamenode)
         
         for unit in units_to_split:
             if unit.allegiance is not self._allegiance:

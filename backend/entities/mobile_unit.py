@@ -79,6 +79,7 @@ class MobileUnit(Unit):
     def set_allegiance(self, empire: Empire):
         """Set the empire this troop serves."""
         self._allegiance = empire
+        
 
     @public_client_property
     def allegiance(self) -> Optional[Empire]:

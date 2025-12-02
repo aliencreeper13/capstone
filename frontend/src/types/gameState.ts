@@ -68,6 +68,9 @@ export interface Army {
   current_hp: number;
   max_hp: number;
   damage_per_tick: number;
+  speed: number;               // Movement speed
+  is_halted: boolean;          // Whether army is halted on a path
+  is_on_path: boolean;         // Whether army is currently on a path
   // Phase 4 additions:
   units: UnitComposition[];    // Detailed unit composition
   position: number;            // Position on path (0-distance) or null if at node
@@ -76,6 +79,9 @@ export interface Army {
   morale: number;              // Army morale (0-100)
   eta_ticks?: number;          // Estimated ticks to destination (if moving)
   destination?: string;        // Destination node name (if moving)
+  path_position?: number;      // Numeric position along path for rendering
+  path_node1_coords?: [number, number];  // Starting node coordinates of path
+  path_node2_coords?: [number, number];  // Ending node coordinates of path
 }
 
 export interface GameNodeData {
@@ -137,6 +143,7 @@ export interface CityData {
   resource_capacities: Resources;
   morale: number;
   defense: number;
+  protection: number;
   hitpoints: number;
   max_hitpoints: number;
   buildings: Building[];
@@ -148,12 +155,14 @@ export interface CityData {
 
 export interface EmpireData {
   name: string;
-  cities?: CityData[];
+  num_cities?: number;
   total_population: Population;
   total_resources: Resources;
   knowledge: number;
   ideology: string;
   capital_name: string;
+  efficiency: number;
+  score: number;
 }
 
 export interface GameState {

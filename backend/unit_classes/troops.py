@@ -9,7 +9,7 @@ from ..entities.army import Troop, ArmyAttributes
 from ..systems.data import ExpendableCityResources
 from ..systems.effects import Effect
 from ..systems.job_requirements import ContingentOnInfo, JobRequirements
-from .buildings import Barracks, Farm
+from .buildings import Barracks, Farm, Walls
 
 
 class Archer(Troop):
@@ -34,7 +34,7 @@ class Archer(Troop):
         ),
         workers_needed_level1=0,
         unit_types_contingent_on=[ContingentOnInfo(
-            unit_class=Barracks,
+            unit_class=Walls,
             minimum_level_needed=1
         )]
     )

@@ -59,20 +59,20 @@ def test_city_morale():
     # Create city with baseline morale
     node = GameNode((0, 0), size=50)
     city = City(gamenode=node, size=50, morale=50.0)
-    assert abs(city.raw_morale - 50.0) < 0.0001, "Initial morale should be 50"
+    assert abs(city.morale - 50.0) < 0.0001, "Initial morale should be 50"
     assert abs(city._raw_morale - 0.0) < 0.0001, "Initial raw morale should be 0"
     print("✓ Initialization: morale=50, raw_morale=0")
     
     # Add morale via add_raw_morale method
     city.add_raw_morale(10)
     assert city._raw_morale == 10.0, "Raw morale should be updated"
-    assert 50 < city.raw_morale < 51, "Displayed morale should increase slightly with gentle curve"
-    print(f"✓ Add morale: raw +10 → displayed {city.raw_morale:.2f}")
+    assert 50 < city.morale < 51, "Displayed morale should increase slightly with gentle curve"
+    print(f"✓ Add morale: raw +10 → displayed {city.morale:.2f}")
     
     # Add more morale to reach raw 1000
     city.add_raw_morale(990)
     assert city._raw_morale == 1000.0, "Raw morale should be 1000"
-    display = city.raw_morale
+    display = city.morale
     assert 85 < display < 91, f"Displayed morale should be around 88 with raw=1000, got {display}"
     print(f"✓ More morale: raw +1000 total → displayed {display:.2f}")
     
@@ -81,7 +81,7 @@ def test_city_morale():
     city2 = City(gamenode=node2, size=50, morale=50.0)
     city2.add_raw_morale(-100)
     assert city2._raw_morale == -100.0, "Raw morale should go negative"
-    display_low = city2.raw_morale
+    display_low = city2.morale
     assert 44 < display_low < 46, f"Displayed morale should be around 45 with raw=-100, got {display_low}"
     print(f"✓ Negative morale: raw -100 → displayed {display_low:.2f}")
 
@@ -128,7 +128,7 @@ def test_morale_effects():
     
     node = GameNode((0, 0), size=50)
     city = City(gamenode=node, size=50)
-    initial_morale = city.raw_morale
+    initial_morale = city.morale
     initial_raw = city._raw_morale
     
     # Create effect that boosts morale per tick
@@ -143,7 +143,7 @@ def test_morale_effects():
     
     assert city._raw_morale == initial_raw + 0.5, "Raw morale should increase by effect amount"
     print(f"✓ Effect applied: raw {initial_raw:.2f} → {city._raw_morale:.2f}")
-    print(f"  Displayed morale: {initial_morale:.2f} → {city.raw_morale:.2f}")
+    print(f"  Displayed morale: {initial_morale:.2f} → {city.morale:.2f}")
 
 
 def test_revolt_threshold():
@@ -160,16 +160,16 @@ def test_revolt_threshold():
     # Reduce morale drastically
     city.add_raw_morale(-10000)  # Very negative raw morale
     
-    assert city.raw_morale < MORALE_REVOLT_THRESHOLD, f"Morale should be below threshold {MORALE_REVOLT_THRESHOLD}"
+    assert city.morale < MORALE_REVOLT_THRESHOLD, f"Morale should be below threshold {MORALE_REVOLT_THRESHOLD}"
     assert city._revolt_countdown is not None, "Revolt countdown should be active"
-    print(f"✓ Revolt triggered: morale={city.raw_morale:.6f} < {MORALE_REVOLT_THRESHOLD}")
+    print(f"✓ Revolt triggered: morale={city.morale:.6f} < {MORALE_REVOLT_THRESHOLD}")
     print(f"  Countdown: {city._revolt_countdown} ticks")
     
     # Recover morale
     city.add_raw_morale(10000)
-    assert city.raw_morale >= MORALE_REVOLT_THRESHOLD, f"Morale should be above threshold {MORALE_REVOLT_THRESHOLD}"
+    assert city.morale >= MORALE_REVOLT_THRESHOLD, f"Morale should be above threshold {MORALE_REVOLT_THRESHOLD}"
     assert city._revolt_countdown is None, "Revolt countdown should be cleared"
-    print(f"✓ Revolt cancelled: morale={city.raw_morale:.2f} >= {MORALE_REVOLT_THRESHOLD}")
+    print(f"✓ Revolt cancelled: morale={city.morale:.2f} >= {MORALE_REVOLT_THRESHOLD}")
 
 
 def test_diminishing_returns():

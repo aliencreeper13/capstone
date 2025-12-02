@@ -297,22 +297,22 @@ const BuildingUpgrades: React.FC<Props> = ({
         <ul className="cost-list">
           {hasFood && (
             <li className={`cost-item ${getResourceClass("food", costs.food)}`}>
-              🌾 {Math.ceil(costs.food)}
+              🌾 {Math.floor(costs.food)}
             </li>
           )}
           {hasTimber && (
             <li className={`cost-item ${getResourceClass("timber", costs.timber)}`}>
-              🪵 {Math.ceil(costs.timber)}
+              🪵 {Math.floor(costs.timber)}
             </li>
           )}
           {hasMetal && (
             <li className={`cost-item ${getResourceClass("metal", costs.metal)}`}>
-              ⚒️ {Math.ceil(costs.metal)}
+              ⚒️ {Math.floor(costs.metal)}
             </li>
           )}
           {hasWealth && (
             <li className={`cost-item ${getResourceClass("wealth", costs.wealth)}`}>
-              💰 {Math.ceil(costs.wealth)}
+              💰 {Math.floor(costs.wealth)}
             </li>
           )}
         </ul>

@@ -23,6 +23,8 @@ from queue import Queue
 from datetime import datetime
 from random import random
 
+
+
 from ..core.constants import (
     AUTOMATIC_FOOD_CONSUMPTION_EFFECT_ID,
     FOOD_CONSUMPTION_SENSITIVITY,
@@ -54,9 +56,11 @@ from ..systems.game_utils import new_game_dataclass_given_morale, new_value_give
 from .unit import Unit
 from .building import Building
 from .army import Army, Troop
+from .passive import PassiveUnit
 from .mobile_unit import MobileUnit
 
 from ..core.exceptions import (
+    IllegalMoveException,
     NotAssignedToGameException,
     NotEnoughWorkersException,
     RequirementsException,
@@ -64,7 +68,7 @@ from ..core.exceptions import (
 
 if TYPE_CHECKING:
     from .empire import Empire
-    from ..gameplay.location import GameNode
+    from ..gameplay.location import GameNode, Path
 
 
 class City(GameObject, HasAllegianceMixin):
@@ -106,6 +110,8 @@ class City(GameObject, HasAllegianceMixin):
         
         self._gamenode: GameNode = gamenode
         self._size: int = size
+
+        self.name = "New City"
         
         # Resources and capacities
         self._resources: ExpendableCityResources = ExpendableCityResources()
@@ -166,11 +172,11 @@ class City(GameObject, HasAllegianceMixin):
         self._hunger_penalty_effect_added: bool = False
 
         # MobileUnitGroup for troop production (military units go here)
-        self._troop_group: Army = Army(allegiance=None)
+        self._troop_group: Army = Army(allegiance=None, initial_gamenode=self._gamenode)
         self._gamenode.add_army(self._troop_group)
         
         # MobileUnitGroup for passive unit production (passive units go here)
-        self._passive_unit_group: Army = Army(allegiance=None)
+        self._passive_unit_group: Army = Army(allegiance=None, initial_gamenode=self._gamenode)
         self._gamenode.add_army(self._passive_unit_group)
     
     # ========== Properties ==========
@@ -287,6 +293,10 @@ class City(GameObject, HasAllegianceMixin):
         if self.allegiance is None:
             return None
         return self.allegiance.knowledge
+
+    @private_client_property
+    def expendable_city_resources(self) -> ExpendableCityResources:
+        return self._resources
     
     @private_client_property
     def expendable_city_resource_pct_increase(self) -> ExpendableCityResources:
@@ -513,7 +523,10 @@ class City(GameObject, HasAllegianceMixin):
             return False
 
         # assert self._remaining_space() > 0, "No space for new building"
-        assert building not in self._buildings, "Building already in city"
+        # assert building not in self._buildings, "Building already in city"
+        if building in self._buildings:
+            print("WARNING: Building already in city")
+            return False 
 
         self._buildings.append(building)
         # self._size -= building.size
@@ -582,6 +595,151 @@ class City(GameObject, HasAllegianceMixin):
             if isinstance(building, unit_class) and building.is_active() and building.level >= minimum_level:
                 count += 1
         return count
+
+    def _create_replacement_production_group(self, is_troop: bool) -> Army:
+        """
+        Create a new empty production group to replace one that has left.
+        
+        When a production group moves onto a path, a new empty group is created
+        so newly created units still have a place to deploy.
+        
+        Args:
+            is_troop: True to create troop group, False for passive unit group
+            
+        Returns:
+            The new empty Army group
+        """
+        new_group = Army(allegiance=self.allegiance, initial_gamenode=self._gamenode)
+        self._gamenode.add_army(new_group)
+        return new_group
+    
+    def move_army_to_path(self, army: Army, path: Path) -> None:
+        """
+        Move an army from a game node onto a path.
+        
+        If the army is a production group, automatically creates a replacement.
+        
+        Args:
+            army: The army to move
+            path: The path to move the army onto
+            
+        Raises:
+            IllegalMoveException: If army is not in a game node
+        """
+        from ..gameplay.location import Path
+        
+        if not army.in_gamenode():
+            raise IllegalMoveException("Army must be in a game node to move to a path")
+        
+        # Check if this is a production group being moved, and replace it
+        if army is self._troop_group:
+            self._troop_group = self._create_replacement_production_group(is_troop=True)
+        elif army is self._passive_unit_group:
+            self._passive_unit_group = self._create_replacement_production_group(is_troop=False)
+        
+        # Move the army onto the path
+        army.get_on_path(path)
+    
+    def halt_army_on_path(self, army: Army) -> bool:
+        """
+        Halt an army's movement on a path (stops position updates).
+        
+        This is a marker/state - actual halt logic is handled by game tick system.
+        
+        Args:
+            army: The army to halt
+            
+        Returns:
+            True if halted successfully, False if not on path
+        """
+        if not army.on_path():
+            return False
+        
+        # Mark army as halted (implementation depends on game tick system)
+        # For now, just return success - the game loop can check this
+        if not hasattr(army, '_is_halted'):
+            army._is_halted = False
+        army._is_halted = True
+        return True
+    
+    def resume_army_on_path(self, army: Army) -> bool:
+        """
+        Resume an army's movement on a path.
+        
+        Args:
+            army: The army to resume
+            
+        Returns:
+            True if resumed successfully, False if not on path
+        """
+        if not army.on_path():
+            return False
+        
+        if not hasattr(army, '_is_halted'):
+            army._is_halted = False
+        army._is_halted = False
+        return True
+    
+    def reverse_army_direction(self, army: Army) -> bool:
+        """
+        Reverse an army's direction on a path.
+        
+        Reverses the position so the army walks back the way it came.
+        
+        Args:
+            army: The army to reverse
+            
+        Returns:
+            True if reversed successfully, False if not on path
+        """
+        from ..gameplay.location import Path
+        
+        if not army.on_path():
+            return False
+        
+        # Get current position on path
+        current_path = army._path
+        current_position = current_path._armies_and_coords[army]
+        
+        # Reverse position: if at position X on path of length D,
+        # reversed position is D - X
+        new_position = current_path.distance - current_position
+        current_path._armies_and_coords[army] = new_position
+        
+        # Mark direction as reversed
+        if not hasattr(army, '_direction_reversed'):
+            army._direction_reversed = False
+        army._direction_reversed = not army._direction_reversed
+        
+        return True
+    
+    def get_stationary_armies(self) -> list[Army]:
+        """
+        Get all armies currently stationed at game nodes.
+        
+        Returns:
+            List of armies at nodes (including production groups)
+        """
+        stationary = []
+        for army in self._gamenode.armies():
+            if army.in_gamenode():
+                stationary.append(army)
+        return stationary
+    
+    def get_moving_armies(self) -> list[Army]:
+        """
+        Get all armies currently moving on paths.
+        
+        Returns:
+            List of armies on paths
+        """
+        from ..gameplay.location import Path
+        
+        moving = []
+        for army in self._gamenode.armies():
+            if army.on_path():
+                moving.append(army)
+        return moving
 
     # ========== Resources ==========
 
@@ -740,6 +898,8 @@ class City(GameObject, HasAllegianceMixin):
         # Apply efficiency changes (if allegiant to an empire)
         raw_efficiency_per_tick = effect.get_raw_efficiency_per_tick(city=self)
         if raw_efficiency_per_tick != 0.0 and self.allegiance is not None:
+            # print("raw efficiency per tick", raw_efficiency_per_tick)
+            # print("raw efficiency added:", raw_efficiency_per_tick * ticks_elapsed)
             self.allegiance.add_raw_efficiency(raw_efficiency_per_tick * ticks_elapsed)
 
         # Apply population growth from effects
@@ -803,8 +963,8 @@ class City(GameObject, HasAllegianceMixin):
                     
         
 
-        # Second, check if there's enough space in city if it's a creation job
-        if job.is_creation:
+        # Second, check if there's enough space in city if it's a building creation job
+        if job.is_creation and issubclass(job.result_class, Building):
             if self._available_space() < job.space_needed:
                 failures.append(f"Not enough available city space for job (need {job.space_needed}, have {self._available_space()})")
 
@@ -1102,7 +1262,7 @@ class City(GameObject, HasAllegianceMixin):
         shuffle(building_classes)
         
         for building_class in building_classes:
-            job = CreationJob(building_class)
+            job = CreationJob(building_class, triggered_by_ai=True)
             requirements_met, failures = self.check_job_requirements(job)
             
             if requirements_met:
@@ -1126,7 +1286,7 @@ class City(GameObject, HasAllegianceMixin):
         shuffle(shuffled_buildings)
         
         for building in shuffled_buildings:
-            job = UpgradeJob(building)
+            job = UpgradeJob(building, triggered_by_ai=True)
             requirements_met, failures = self.check_job_requirements(job)
             
             if requirements_met:
@@ -1150,7 +1310,7 @@ class City(GameObject, HasAllegianceMixin):
         shuffle(shuffled_buildings)
         
         for building in shuffled_buildings:
-            job = DestructionJob(building)
+            job = DestructionJob(building, triggered_by_ai=True)
             requirements_met, failures = self.check_job_requirements(job)
             
             if requirements_met:
@@ -1216,6 +1376,15 @@ class City(GameObject, HasAllegianceMixin):
             # population_changes['deaths_old_age'] > 0 or population_changes['emigration'] > 0):
             # PopulationDynamics.print_population_report(self, population_changes)
 
+
+        # if production army and/or production passive group has moved out of
+        # city's gamenode, then replace production army and/or production passive
+        # group with new groups
+        if self._troop_group not in self._gamenode.armies():
+            self._troop_group = self._create_replacement_production_group(is_troop=True)
+        if self._passive_unit_group not in self._gamenode.armies():
+            self._passive_unit_group = self._create_replacement_production_group(is_troop=False)    
+
         # FIXME: This doesn't seem to be working...
         if self._societal_resources.population.employable_population >= self._societal_resources.population.total():
             self._societal_resources.population.employable_population = self._societal_resources.population.total()
@@ -1253,7 +1422,8 @@ class City(GameObject, HasAllegianceMixin):
                                 unix_timestamp=int(datetime.now().timestamp()),
                                 source="City",
                                 description=f"Failed to build {job_result.name} in {self.name}. Insufficient space.",
-                                data={"city_name": self.name, "building_type": job_result.name, "status": "failed"}
+                                data={"city_name": self.name, "building_type": job_result.name, "status": "failed"},
+                                triggered_by_ai=job.triggered_by_ai
                             )
                             message = f"✗ Failed to complete job: {job_name} (insufficient space)"
                         else:
@@ -1263,14 +1433,43 @@ class City(GameObject, HasAllegianceMixin):
                                 unix_timestamp=int(datetime.now().timestamp()),
                                 source="City",
                                 description=f"Building completed in {self.name}: {job_result.name}",
-                                data={"city_name": self.name, "building_type": job_result.name, "status": "completed"}
+                                data={"city_name": self.name, "building_type": job_result.name, "status": "completed"},
+                                triggered_by_ai=job.triggered_by_ai
+                            
                         )
                         message = f"✓ Completed job: {job_name}"
                         self.allegiance.record_event(event)
                         # TODO: Add refund logic if success=False
                 elif isinstance(job_result, Troop):
+                    assert job_result is not None
                     self._add_troop(job_result)
-
+                    from ..gameplay.events import GameEvent
+                    unit_name = getattr(job_result, "name", getattr(job_result, "__name__", str(job_result)))
+                    event = GameEvent(
+                        type="troop_created",
+                        unix_timestamp=int(datetime.now().timestamp()),
+                        source="City",
+                        description=f"Troop created in {self.name}: {unit_name}",
+                        data={"city_name": self.name, "unit_type": unit_name, "status": "created"},
+                        triggered_by_ai=job.triggered_by_ai
+                    )
+                    if self.allegiance is not None:
+                        self.allegiance.record_event(event)
+                elif isinstance(job_result, PassiveUnit):
+                    assert job_result is not None
+                    self._add_passive_unit(job_result)
+                    from ..gameplay.events import GameEvent
+                    unit_name = getattr(job_result, "name", getattr(job_result, "__name__", str(job_result)))
+                    event = GameEvent(
+                        type="passive_unit_created",
+                        unix_timestamp=int(datetime.now().timestamp()),
+                        source="City",
+                        description=f"Passive unit created in {self.name}: {unit_name}",
+                        data={"city_name": self.name, "unit_type": unit_name, "status": "created"},
+                        triggered_by_ai=job.triggered_by_ai
+                    )
+                    if self.allegiance is not None:
+                        self.allegiance.record_event(event)
                 print("Finished job!")
                 self._running_jobs.remove(job)
 
@@ -1405,7 +1604,7 @@ class City(GameObject, HasAllegianceMixin):
         # Calculate costs
         wealth_cost = distance * RESOURCE_TRANSFER_WEALTH_COST_PER_TILE
         transfer_ticks = max(1, int(distance * RESOURCE_TRANSFER_TICKS_PER_TILE))
-        
+        # transfer_ticks = 4
         # Check if this city has enough wealth
         if self._resources.wealth < wealth_cost:
             return False, f"Insufficient wealth for transfer. Need {wealth_cost}, have {self._resources.wealth}"
@@ -1434,10 +1633,11 @@ class City(GameObject, HasAllegianceMixin):
         
         for transfer in self._pending_transfers:
             transfer['ticks_remaining'] -= 1
+            print(f"Transfer to {transfer['target_city'].name}: {transfer['ticks_remaining']} ticks remaining")
             
             if transfer['ticks_remaining'] <= 0:
                 # Transfer complete - add resources to target city
-                target_city = transfer['target_city']
+                target_city: City = transfer['target_city']
                 resources = transfer['resources']
                 
                 target_city.change_resources(resources)

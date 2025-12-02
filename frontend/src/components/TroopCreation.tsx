@@ -175,25 +175,25 @@ const UnitCard: React.FC<UnitCardProps> = ({ unit, onCreate, isCreating }) => {
           {unit.creation_cost.food > 0 && (
             <div className="cost-item">
               <span>🌾 Food:</span>
-              <span>{Math.round(unit.creation_cost.food)}</span>
+              <span>{Math.floor(unit.creation_cost.food)}</span>
             </div>
           )}
           {unit.creation_cost.timber > 0 && (
             <div className="cost-item">
               <span>🌲 Timber:</span>
-              <span>{Math.round(unit.creation_cost.timber)}</span>
+              <span>{Math.floor(unit.creation_cost.timber)}</span>
             </div>
           )}
           {unit.creation_cost.metal > 0 && (
             <div className="cost-item">
               <span>⚙️ Metal:</span>
-              <span>{Math.round(unit.creation_cost.metal)}</span>
+              <span>{Math.floor(unit.creation_cost.metal)}</span>
             </div>
           )}
           {unit.creation_cost.wealth > 0 && (
             <div className="cost-item">
               <span>💰 Wealth:</span>
-              <span>{Math.round(unit.creation_cost.wealth)}</span>
+              <span>{Math.floor(unit.creation_cost.wealth)}</span>
             </div>
           )}
         </div>

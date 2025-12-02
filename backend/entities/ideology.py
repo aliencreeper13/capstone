@@ -7,6 +7,8 @@ corruption, and other empire-wide mechanics. Ideology cannot be changed mid-game
 
 from __future__ import annotations
 
+from ..systems.government_actions import ElectionAction, GovernmentAction, PropagandaAction, TaxAction
+
 from ..systems.data import ExpendableCityResources, ExpendableEmpireResources
 from ..systems.effects import Effect, UniversalEffect
 from ..core.gameobject import GameObject, DataclassGameObject, public_client_property
@@ -27,7 +29,7 @@ class Ideology(GameObject):
         _ideological_specific_effects: Effects specific to this ideology
     """
     
-    def __init__(self, effects_list: list[Effect], autonomy: int):
+    def __init__(self, effects_list: list[Effect], autonomy: int, government_actions: list[GovernmentAction]):
         """
         Initialize an ideology with its specific effects.
         
@@ -39,6 +41,7 @@ class Ideology(GameObject):
         if autonomy < 0 or autonomy > 100:
             raise ValueError("Autonomy must be between 0 and 100")
         self._autonomy = autonomy  # Autonomy level (0-100) for cities under this ideology
+        self._government_actions = government_actions
 
 
     @public_client_property
@@ -49,6 +52,11 @@ class Ideology(GameObject):
     def autonomy(self) -> int:
         """Get the autonomy level for cities under this ideology."""
         return self._autonomy
+    @public_client_property
+    def government_actions(self) -> list[GovernmentAction]:
+        """Get the list of government actions available under this ideology."""
+        return Ideology.neutral_government_actions() + self._government_actions
+    
     @classmethod
     def neutral_effects(cls) -> list[Effect]:
         """
@@ -68,7 +76,7 @@ class Ideology(GameObject):
             ),
             theoretical_new_people_per_tick=2,
             theoretical_new_employable_per_tick=1, # it's called "theoretical" because the actual population growth is rounded to an integer 
-            effect_id=273847293847942387238972398478439
+            # effect_id=273847293847942387238972398478439
         ), # Single effect that scales food consumption with population
         UniversalEffect(
             duration_in_ticks=0,  # indefinite
@@ -82,7 +90,20 @@ class Ideology(GameObject):
             raw_morale_per_tick=-1.0
     )]
 
-
+    @classmethod
+    def neutral_government_actions(cls) -> list[GovernmentAction]:
+        """
+        Get the default government actions available to all ideologies.
+        
+        Returns:
+            List of default government actions
+        """
+        # if the ideology is anything other than Anarchy, return TaxAction
+        # if the ideology is Anarchy, return empty list
+        if cls.__name__ == 'Anarchy':
+            return []
+        else:
+            return [TaxAction()]
 class NeutralIdeology(Ideology):
     """
     Neutral ideology with no special effects or penalties.
@@ -93,7 +114,7 @@ class NeutralIdeology(Ideology):
     
     def __init__(self):
         """Initialize neutral ideology with no special effects."""
-        super().__init__([], autonomy=50)  # Neutral autonomy
+        super().__init__([], autonomy=50, government_actions=[TaxAction()])  # Neutral autonomy with basic tax action
 
 
 class Monarchy(Ideology):
@@ -113,10 +134,13 @@ class Monarchy(Ideology):
                 raw_morale_per_tick=1,
                 expendable_empire_resources_pct_increase=ExpendableEmpireResources(
                     knowledge=-2
-                )
+                ),
+                raw_efficiency_per_tick=-0.5
             )
         ],
-            autonomy=30)  # Monarchical cities have lower autonomy
+            autonomy=30,
+            government_actions=[TaxAction(intensity=2),               # moderate taxation
+                PropagandaAction("patriotic")])  # Monarchical cities have lower autonomy
 
 
 class Republic(Ideology):
@@ -137,10 +161,16 @@ class Republic(Ideology):
                 raw_morale_per_tick=0.5,
                 expendable_city_resources_pct_increase=ExpendableCityResources(
                     wealth=5
-                )
+                ),
+                raw_efficiency_per_tick=0.5
             )
         ],
-        autonomy=50)  # Republican cities have moderate autonomy
+        autonomy=50,
+        government_actions=[
+             ElectionAction(),                     # elections available
+            TaxAction(intensity=1),               # light taxes
+            PropagandaAction("economic"),         # stimulate trade/wealth
+        ])  # Republican cities have moderate autonomy
 
 
 class Communism(Ideology):
@@ -165,10 +195,14 @@ class Communism(Ideology):
             # Efficiency penalty for bureaucratic overhead (reduces efficiency = increases corruption)
             UniversalEffect(
                 duration_in_ticks=0,
-                raw_efficiency_per_tick=-2.0  # -2 efficiency per tick = +2 corruption per tick
+                raw_efficiency_per_tick=-10.0  # -10 raw efficiency per tick = +10 raw corruption per tick
             )
         ],
-        autonomy=20)
+        autonomy=20,
+        government_actions=[
+            PropagandaAction("economic"),         # emphasize economic campaigns
+            TaxAction(intensity=3),               # light/common taxation
+        ])
 
 
 class Dictatorship(Ideology):
@@ -194,10 +228,14 @@ class Dictatorship(Ideology):
                     timber=1,
                     metal=1
                 ),
-                effect_id=289237882987234897243893
+                # effect_id=289237882987234897243893
             )
         ],
-        autonomy=0)  # Dictatorial cities have no autonomy
+        autonomy=0,
+        government_actions=[
+             TaxAction(intensity=3),               # heavy taxation
+            PropagandaAction("patriotic"),        # state propaganda
+        ])  # Dictatorial cities have no autonomy
 
 
 class Anarchy(Ideology):
@@ -222,10 +260,12 @@ class Anarchy(Ideology):
                     metal=-5,
                     wealth=-5
                 ),
-                new_people_per_tick=2  # Slight population growth
+                new_people_per_tick=5,  # Additional population growth
+                raw_efficiency_per_tick=-15, # efficiency penalty to simulate mismanagement
             )
         ],
-        autonomy=99)  # Anarchic cities have very high autonomy 
+        autonomy=99,
+        government_actions=[])  # Anarchic cities have very high autonomy 
                       # autonomy (can't be 100 because that would make player action impossible)
 
 
@@ -245,6 +285,7 @@ class Socialism(Ideology):
             UniversalEffect(
                 duration_in_ticks=0,
                 raw_morale_per_tick=1.5,
+                raw_efficiency_per_tick=-5, # efficiency penalty to simulate bureaucracy
                 expendable_city_resources_pct_increase=ExpendableCityResources(
                     food=8,
                     wealth=-15,
@@ -252,7 +293,11 @@ class Socialism(Ideology):
                 )
             )
         ],
-        autonomy=25)
+        autonomy=25,
+        government_actions=[
+             PropagandaAction("populist"),         # focus on social programs
+            TaxAction(intensity=2),
+        ])
 
 
 class Theocracy(Ideology):
@@ -276,4 +321,8 @@ class Theocracy(Ideology):
                 )
             )
         ],
-        autonomy=30)
+        autonomy=30,
+        government_actions=[
+            PropagandaAction("patriotic"),        # religious/state propaganda
+            TaxAction(intensity=2),               # moderate taxation
+        ])

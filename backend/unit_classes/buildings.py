@@ -7,7 +7,7 @@ from ..systems.job_requirements import JobRequirements
 
 class Market(Building):
     name = "Market"
-    size = 3
+    size = 1
     job_num_ticks = 10
     category = UnitCategory.ECONOMIC
     effect = Effect(
@@ -33,7 +33,7 @@ class Bank(Building):
     category = UnitCategory.ECONOMIC
     effect = Effect(
         duration_in_ticks=0,
-        expendable_empire_resources_pct_increase=ExpendableCityResources(
+        expendable_city_resources_pct_increase=ExpendableCityResources(
             wealth=1),
         expendable_city_resource_capacities_offered=ExpendableCityResources(
             wealth=100
@@ -44,7 +44,8 @@ class Bank(Building):
             wealth=10,
             timber=80,
         ),
-        workers_needed_level1=3
+        workers_needed_level1=3,
+        max_per_city=1
     )
     description = "Adds more wealth storage for the city and boosts wealth generation."
 
@@ -78,20 +79,23 @@ class Granary(Building):
         expendable_city_resource_capacities_offered=ExpendableCityResources(
             food=100
         ),
-    )
+        expendable_city_resources_pct_increase=ExpendableCityResources(
+            food=1
+    ))
     job_requirements = JobRequirements(
         expendable_city_resources_level1=ExpendableCityResources(
             wealth=10,
             timber=50,
         ),
-        workers_needed_level1=3
+        workers_needed_level1=3,
+        max_per_city=1
     )
-    description = "Adds more food storage for the city."
+    description = "Adds more food storage for the city and boosts food production by 1%"
         
 
 class WoodcuttersCamp(Building):
     name = "Woodcutter's Camp"
-    size = 3
+    size = 1
     job_num_ticks = 8
     category = UnitCategory.ECONOMIC
     effect = Effect(
@@ -119,6 +123,8 @@ class LumberYard(Building):
         expendable_city_resource_capacities_offered=ExpendableCityResources(
             timber=100
         ),
+        expendable_city_resources_pct_increase=ExpendableCityResources(
+            timber=1)
 
     )
     job_requirements = JobRequirements(
@@ -126,9 +132,10 @@ class LumberYard(Building):
             wealth=10,
             food=50,
         ),
-        workers_needed_level1=3
+        workers_needed_level1=3,
+        max_per_city=1
     )
-    description = "Adds more timber storage for the city."
+    description = "Adds more timber storage for the city and boosts timber production by 1%."
         
 class Mine(Building):
     name = "Mine"
@@ -160,6 +167,9 @@ class FoundryVault(Building):
         expendable_city_resource_capacities_offered=ExpendableCityResources(
             metal=100
         ),
+        expendable_city_resources_pct_increase=ExpendableCityResources(
+            metal=1
+    )
 
     )
     job_requirements = JobRequirements(
@@ -169,7 +179,7 @@ class FoundryVault(Building):
         ),
         workers_needed_level1=3
     )
-    description = "Adds more metal storage for the city."
+    description = "Adds more metal storage for the city and boosts metal production by 1%."
         
 class School(Building):
     name = "School"
@@ -208,8 +218,9 @@ class University(Building):
     )
     job_requirements = JobRequirements(
         expendable_city_resources_level1=ExpendableCityResources(
-            wealth=200,
+            wealth=200
         ),
+        knowledge_level1=300,
         workers_needed_level1=1,
         max_per_city=1
     )
@@ -263,17 +274,19 @@ class Hospital(Building):
     effect = Effect(
         duration_in_ticks=0,
         raw_morale_per_tick=0.05,
-        max_lifespan_increase=10,
+        # max_lifespan_increase=10,
+        population_capacity_offered=150,
     )
     job_requirements = JobRequirements(
         expendable_city_resources_level1=ExpendableCityResources(
-            wealth=1,
-            timber=10
+            wealth=100,
+            timber=100,
+            food=100
         ),
         workers_needed_level1=2,
         max_per_city=2
     )
-    description = "Morale booster for city, increases lifespan."
+    description = "Morale booster for city, increases population capacity."
         
 class Housing(Building):
     name = "Housing"
@@ -353,10 +366,11 @@ class Fortress(Building):
     )
     job_requirements = JobRequirements(
         expendable_city_resources_level1=ExpendableCityResources(
-            wealth=150,
-            timber=50,
-            metal=50,
+            wealth=1, # 150,
+            timber=1, # 50,
+            metal=1, # 50,
         ),
+        knowledge_level1=500,
         workers_needed_level1=15,
         max_per_city=1
     )

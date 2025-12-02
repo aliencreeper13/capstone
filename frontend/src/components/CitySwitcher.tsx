@@ -108,15 +108,15 @@ const CitySwitcher: React.FC<Props> = ({ onCitySelected }) => {
             <div className="city-stats">
               <div className="stat-row">
                 <span className="stat-label">🌾</span>
-                <span className="stat-value">{city.resources.food.toFixed(0)}</span>
+                <span className="stat-value">{Math.floor(city.resources.food)}</span>
                 <span className="stat-label">🪵</span>
-                <span className="stat-value">{city.resources.timber.toFixed(0)}</span>
+                <span className="stat-value">{Math.floor(city.resources.timber)}</span>
               </div>
               <div className="stat-row">
                 <span className="stat-label">⚙️</span>
-                <span className="stat-value">{city.resources.metal.toFixed(0)}</span>
+                <span className="stat-value">{Math.floor(city.resources.metal)}</span>
                 <span className="stat-label">💰</span>
-                <span className="stat-value">{city.resources.wealth.toFixed(0)}</span>
+                <span className="stat-value">{Math.floor(city.resources.wealth)}</span>
               </div>
             </div>
 

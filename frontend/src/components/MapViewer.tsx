@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { GameApiService } from "../services/gameApi";
-import { MapStructureData, GameNodeData, Army } from "../types/gameState";
+import { MapStructureData, GameNodeData } from "../types/gameState";
 import "./styles/MapViewer.css";
 
 interface Props {

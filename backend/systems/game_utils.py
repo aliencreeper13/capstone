@@ -41,14 +41,17 @@ def new_value_given_morale(baseline: float, morale: float, k: float = 0.01) -> f
     assert 0 <= morale <= MAX_MORALE, (
         f"Morale must be between 0 and {MAX_MORALE}, got {morale}"
     )
-    # Standard logistic sigmoid scaled to [0.2, 5.0] multiplier range
-    # At morale=50: multiplier = 1.0x (baseline production)
-    # At morale=0: multiplier ~ 0.2x (low morale reduces production)
-    # At morale=100: multiplier ~ 5.0x (high morale boosts production)
-    sigmoid = 1.0 / (1.0 + exp(-k * (morale - HALF_MORALE)))
-    multiplier = 0.2 + (5.0 - 0.2) * sigmoid
-    return baseline * multiplier
+    # Standard sigmoid shifted so that 50 is the midpoint
+    s = 1.0 / (1.0 + exp(-k * (morale - HALF_MORALE)))
+    s_mid = 1.0 / (1.0 + exp(-k * (HALF_MORALE - HALF_MORALE)))
 
+    # Normalize so that at morale=50, returned value = baseline
+    return baseline * (s / s_mid)
+
+def new_value_given_efficiency(baseline: float, efficiency: float, k: float = 0.01) -> float:
+    # corruption = 100 - efficiency
+    # print("the Efficiency:", efficiency)
+    return new_value_given_morale(baseline, efficiency, k)  # Same formula applies
 
 def new_game_dataclass_given_morale(dataclass_obj: GameDataclass, morale: float, k: float = 0.01) -> GameDataclass:
     """

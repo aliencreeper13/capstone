@@ -22,25 +22,35 @@ const EmpireStats: React.FC<Props> = ({ empire, currentTick }) => {
 
       <div className="empire-info-grid">
         <div className="info-card">
-          <div className="info-label">Ideology</div>
+          <div className="empire-info-label">Ideology</div>
           <div className="info-value">{empire.ideology}</div>
         </div>
 
         <div className="info-card">
-          <div className="info-label">Capital</div>
+          <div className="empire-info-label">Capital</div>
           <div className="info-value">{empire.capital_name}</div>
         </div>
 
         <div className="info-card">
-          <div className="info-label">Cities</div>
-          <div className="info-value">{empire.cities?.length ?? 1}</div>
+          <div className="empire-info-label">Cities</div>
+          <div className="info-value">{empire.num_cities}</div>
         </div>
 
         <div className="info-card">
-          <div className="info-label">Knowledge</div>
-          <div className="info-value">{empire.knowledge}</div>
+          <div className="empire-info-label">Knowledge</div>
+          <div className="info-value">{empire.knowledge.toFixed(0)}</div>
+        </div>
+
+        <div className="info-card">
+          <div className="empire-info-label">Efficiency</div>
+          <div className="info-value">{empire.efficiency.toFixed(0)}</div>
+        </div>
+        <div className="info-card">
+          <div className="empire-info-label">Score</div>
+          <div className="info-value"> {empire.score.toFixed(0)}</div>
         </div>
       </div>
+      
 
       <div className="aggregate-stats">
         <div className="stat-row">
@@ -56,19 +66,19 @@ const EmpireStats: React.FC<Props> = ({ empire, currentTick }) => {
           <div className="resource-items">
             <div className="resource-item">
               <span className="emoji">🍞</span>
-              <span>{empire.total_resources.food}</span>
+              <span>{Math.floor(empire.total_resources.food)}</span>
             </div>
             <div className="resource-item">
               <span className="emoji">🌲</span>
-              <span>{empire.total_resources.timber}</span>
+              <span>{Math.floor(empire.total_resources.timber)}</span>
             </div>
             <div className="resource-item">
               <span className="emoji">⛏️</span>
-              <span>{empire.total_resources.metal}</span>
+              <span>{Math.floor(empire.total_resources.metal)}</span>
             </div>
             <div className="resource-item">
               <span className="emoji">💰</span>
-              <span>{empire.total_resources.wealth}</span>
+              <span>{Math.floor(empire.total_resources.wealth)}</span>
             </div>
           </div>
         </div>

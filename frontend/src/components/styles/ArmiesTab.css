@@ -59,6 +59,10 @@
   min-height: 0;
 }
 
+.armies-tab-container:has(.detail-section) {
+  grid-template-columns: 2fr 1fr 1fr;
+}
+
 .map-section {
   display: flex;
   flex-direction: column;
@@ -76,6 +80,16 @@
   border-radius: 6px;
   border: 1px solid #ecf0f1;
   overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.detail-section {
+  display: flex;
+  flex-direction: column;
+  background: white;
+  border-radius: 6px;
+  border: 1px solid #ecf0f1;
+  overflow: auto;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
@@ -123,12 +137,20 @@
   .armies-tab-container {
     grid-template-columns: 1.5fr 1fr;
   }
+
+  .armies-tab-container:has(.detail-section) {
+    grid-template-columns: 1.5fr 1fr 1fr;
+  }
 }
 
 @media (max-width: 768px) {
   .armies-tab-container {
     grid-template-columns: 1fr;
     gap: 15px;
+  }
+
+  .armies-tab-container:has(.detail-section) {
+    grid-template-columns: 1fr;
   }
 
   .map-section {

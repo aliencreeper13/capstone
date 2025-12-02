@@ -319,14 +319,14 @@ export class GameApiService {
   /**
    * Execute a government action (costs wealth from capital)
    */
-  static async executeGovernmentAction(actionType: string, data: Record<string, any> = {}): Promise<ApiResponse> {
+  static async executeGovernmentAction(actionId: string): Promise<ApiResponse> {
     try {
       const response = await fetch(`${API_BASE_URL}/api/government/action`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ action_type: actionType, ...data }),
+        body: JSON.stringify({ action_id: actionId }),
       });
 
       if (!response.ok) {
@@ -435,17 +435,106 @@ export class GameApiService {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ destination_node_id: destinationNodeId }),
+        // include army_id because FastAPI model expects it in the body
+        body: JSON.stringify({ army_id: armyId, destination_node_id: destinationNodeId }),
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.detail || `Failed to move army: ${response.statusText}`);
+        // Try to parse JSON body safely and build a useful message
+        let errorPayload: any = null;
+        try {
+          errorPayload = await response.json();
+        } catch (parseErr) {
+          // Non-JSON response
+          throw new Error(`Failed to move army: ${response.status} ${response.statusText}`);
+        }
+
+        // Prefer common fields, otherwise stringify the payload
+        const detail = errorPayload?.detail ?? errorPayload?.message ?? errorPayload;
+        const msg = typeof detail === "string"
+          ? detail
+          : (detail === null || detail === undefined)
+            ? `Failed to move army: ${response.status} ${response.statusText}`
+            : JSON.stringify(detail);
+
+        throw new Error(msg);
       }
 
       return await response.json();
     } catch (error) {
       console.error("Failed to move army:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Halt an army on a path
+   */
+  static async haltArmy(armyId: string): Promise<ApiResponse> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/armies/${armyId}/halt`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || `Failed to halt army: ${response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error("Failed to halt army:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Resume an army on a path
+   */
+  static async resumeArmy(armyId: string): Promise<ApiResponse> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/armies/${armyId}/resume`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || `Failed to resume army: ${response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error("Failed to resume army:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Reverse an army's direction on a path
+   */
+  static async reverseArmy(armyId: string): Promise<ApiResponse> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/armies/${armyId}/reverse`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || `Failed to reverse army: ${response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error("Failed to reverse army:", error);
       throw error;
     }
   }
@@ -458,12 +547,14 @@ export class GameApiService {
       current_tick: 0,
       empire: {
         name: "Demo Empire",
-        cities: [],
+        num_cities: 1,
         total_population: { total: 0, employable: 0, employed: 0 },
         total_resources: { food: 0, timber: 0, metal: 0, wealth: 0 },
         knowledge: 0,
         ideology: "Neutral",
         capital_name: "Capital City",
+        efficiency: 50,
+        score: 1000,
       },
       selected_city: {
         coords: [0, 0],
@@ -473,6 +564,7 @@ export class GameApiService {
         resource_capacities: { food: 500, timber: 300, metal: 150, wealth: 1000 },
         morale: 50,
         defense: 100,
+        protection: 50,
         hitpoints: 100,
         max_hitpoints: 100,
         buildings: [
@@ -620,6 +712,9 @@ export class GameApiService {
             current_hp: 100,
             max_hp: 100,
             damage_per_tick: 15,
+            speed: 3,
+            is_halted: false,
+            is_on_path: false,
             units: [{ type: "Soldier", count: 50, name: "Soldiers" }],
             position: 0,
             location: "Capital City",

@@ -22,14 +22,14 @@ class Settler(PassiveUnit):
     """
     name = "Settler"
     size = 1
-    job_num_ticks = 25
+    job_num_ticks = 1
     effect = Effect(
         duration_in_ticks=0,
     )
     job_requirements = JobRequirements(
         expendable_city_resources_level1=ExpendableCityResources(
-            wealth=100,
-            food=100,
+            wealth=1,
+            timber=1,
         ),
         workers_needed_level1=0,
         unit_types_contingent_on=[]

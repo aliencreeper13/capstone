@@ -7,6 +7,7 @@ import React, { useState, useEffect } from "react";
 import { CityData } from "../types/gameState";
 import { GameApiService } from "../services/gameApi";
 import { lerpColor } from "../utils/game_utils";
+import CityArmies from "./CityArmies";
 import "./styles/CityOverview.css";
 
 interface CityOption {
@@ -210,6 +211,13 @@ const CityOverview: React.FC<Props> = ({ city }) => {
           <div className="stat-subtext">{defenseLevel}</div>
         </div>
 
+        {/* Protection */}
+        <div className="stat-box">
+          <div className="stat-label">🔰 Protection</div>
+          <div className="stat-value">{city.protection.toFixed(0)}</div>
+          <div className="stat-subtext">{defenseLevel}</div>
+        </div>
+
         {/* Health */}
         <div className="stat-box">
           <div className="stat-label">❤️ Health</div>
@@ -269,7 +277,7 @@ const CityOverview: React.FC<Props> = ({ city }) => {
                   <span className="resource-name">{resource.name}</span>
                 </div>
                 <div className="resource-value">
-                  {resource.value.toFixed(0)} / {resource.capacity}
+                  {Math.floor(resource.value)} / {resource.capacity}
                 </div>
                 <div className="resource-bar">
                   <div
@@ -451,6 +459,9 @@ const CityOverview: React.FC<Props> = ({ city }) => {
           </div>
         )}
       </div>
+
+      {/* City Armies Section */}
+      <CityArmies armies={city.armies} cityName={city.name} />
     </div>
   );
 };

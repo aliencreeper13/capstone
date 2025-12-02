@@ -193,7 +193,7 @@ class GameServer:
                 
                 # Create empire
                 self.empire = Empire(autonomy=50, capital_city=self.capital_city, ideology=ideology)
-                self.empire.name = "New Empire"
+                self.empire.name = "Demo Empire"
                 self.empire.add_city(self.capital_city)
                 self.game.add_empire(self.empire)
                 logger.info(f"    ✓ Empire established")

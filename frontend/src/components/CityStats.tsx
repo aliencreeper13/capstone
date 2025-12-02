@@ -151,7 +151,7 @@ const CityStats: React.FC<Props> = ({ city }) => {
                 <span>{resource.name}</span>
               </div>
               <div className="resource-value">
-                {resource.value.toFixed(0)} / {resource.capacity}
+                {Math.floor(resource.value)} / {resource.capacity}
               </div>
               <div className="resource-bar">
                 <div

@@ -233,7 +233,7 @@ class SocietalResources(DataclassGameObject):
         """Get total employed population."""
         return self.population.employed_population
 
-
+# TODO: efficiency should be removed, as it's now handled as its own separate category
 @dataclass
 class ExpendableEmpireResources(GameDataclass, DataclassGameObject):
     """
@@ -248,7 +248,7 @@ class ExpendableEmpireResources(GameDataclass, DataclassGameObject):
         knowledge: Technical advancement (used to unlock buildings/units).
                   Floating point for precision when affected by percentage multipliers.
     """
-    efficiency: float = 50.0  # Neutral efficiency (50% corruption)
+    efficiency: float = 0.0  # Neutral efficiency (50% corruption)
     knowledge: float = 0.0
 
 

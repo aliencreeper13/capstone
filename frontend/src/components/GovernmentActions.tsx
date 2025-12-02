@@ -8,7 +8,7 @@ import React, { useState, useEffect } from "react";
 import { CityData, EmpireData } from "../types/gameState";
 import { GameApiService } from "../services/gameApi";
 import "./styles/GovernmentActions.css";
-
+const API_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:8000";
 interface Props {
   city: CityData;
   empire: EmpireData;
@@ -34,74 +34,19 @@ const GovernmentActions: React.FC<Props> = ({ city, empire, onActionExecuted }) 
 
   const isCapitalCity = city.name === empire.capital_name;
 
-  // Mock government actions (replace with actual backend data)
-  const mockActions: GovernmentAction[] = [
-    {
-      id: "increase_tax",
-      name: "Increase Tax Rate",
-      description: "Increase tax collection from all cities",
-      icon: "💰",
-      cost_wealth: 50,
-      effect: "Wealth production +20% for 50 ticks",
-      category: "tax",
-    },
-    {
-      id: "decrease_tax",
-      name: "Decrease Tax Rate",
-      description: "Reduce tax burden on citizens",
-      icon: "💸",
-      cost_wealth: 0,
-      effect: "Morale +10 across all cities for 50 ticks",
-      category: "tax",
-    },
-    {
-      id: "conscription",
-      name: "Conscription",
-      description: "Convert eligible population to military units",
-      icon: "⚔️",
-      cost_wealth: 100,
-      effect: "Create 50 soldiers in capital city",
-      category: "population",
-    },
-    {
-      id: "population_incentive",
-      name: "Population Incentive",
-      description: "Encourage population growth in capital",
-      icon: "👥",
-      cost_wealth: 80,
-      effect: "Population growth +5% for 100 ticks",
-      category: "population",
-    },
-    {
-      id: "research_grant",
-      name: "Research Grant",
-      description: "Fund scientific research",
-      icon: "🔬",
-      cost_wealth: 150,
-      effect: "Knowledge +100, unlock advanced buildings",
-      category: "research",
-    },
-    {
-      id: "diplomatic_mission",
-      name: "Diplomatic Mission",
-      description: "Send diplomatic envoys (future feature)",
-      icon: "🕊️",
-      cost_wealth: 120,
-      effect: "Improve relations with other empires",
-      category: "diplomacy",
-    },
-  ];
-
   useEffect(() => {
     const loadActions = async () => {
       try {
         setLoading(true);
-        // For now, use mock data. Replace with actual API call when endpoint is ready
-        // const data = await GameApiService.getAvailableGovernmentActions();
-        setActions(mockActions);
+        const response = await fetch(`${API_BASE_URL}/api/government/available-actions`);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch: ${response.statusText}`);
+        }
+        const data = await response.json();
+        setActions(data.actions || []);
       } catch (err) {
         console.error("Failed to load government actions:", err);
-        setActions(mockActions); // Fallback to mock data
+        setActions([]); // Empty list on error instead of mock data
       } finally {
         setLoading(false);
       }
@@ -118,7 +63,7 @@ const GovernmentActions: React.FC<Props> = ({ city, empire, onActionExecuted }) 
 
     // Check if capital has enough wealth
     if (city.resources.wealth < action.cost_wealth) {
-      setError(`Insufficient wealth! Need ${action.cost_wealth}, but only have ${city.resources.wealth.toFixed(0)}`);
+      setError(`Insufficient wealth! Need ${action.cost_wealth}, but only have ${Math.floor(city.resources.wealth)}`);
       return;
     }
 
@@ -127,9 +72,7 @@ const GovernmentActions: React.FC<Props> = ({ city, empire, onActionExecuted }) 
       setSuccess(null);
       setExecuting(action.id);
 
-      await GameApiService.executeGovernmentAction(action.id, {
-        wealth_cost: action.cost_wealth,
-      });
+      await GameApiService.executeGovernmentAction(action.id);
 
       setSuccess(`✓ ${action.name} executed successfully!`);
       onActionExecuted();
@@ -144,7 +87,7 @@ const GovernmentActions: React.FC<Props> = ({ city, empire, onActionExecuted }) 
     }
   };
 
-  const actionsByCategory = mockActions.reduce((acc, action) => {
+  const actionsByCategory = actions.reduce((acc, action) => {
     if (!acc[action.category]) {
       acc[action.category] = [];
     }
@@ -188,7 +131,7 @@ const GovernmentActions: React.FC<Props> = ({ city, empire, onActionExecuted }) 
         <div className="treasury-info">
           <span className="wealth-display">
             <span className="wealth-icon">💰</span>
-            <span className="wealth-value">{city.resources.wealth.toFixed(0)} Wealth</span>
+            <span className="wealth-value">{Math.floor(city.resources.wealth)} Wealth</span>
           </span>
         </div>
       </div>

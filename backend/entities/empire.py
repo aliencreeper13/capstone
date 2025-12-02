@@ -18,6 +18,8 @@ from abc import ABC
 from typing import TYPE_CHECKING, Optional
 from datetime import datetime
 
+
+
 from ..systems.government_actions import GovernmentAction
 
 from ..core.constants import HALF_AUTONOMY
@@ -39,6 +41,7 @@ from ..gameplay.events import GameEvent
 if TYPE_CHECKING:
     from .city import City
     from ..gameplay.game import Game, EmptyGame
+    from ..entities.army import MobileUnitGroup
 
 
 class Empire(GameObject, HasAllegianceMixin):
@@ -103,6 +106,10 @@ class Empire(GameObject, HasAllegianceMixin):
         
         # Game events for tracking important occurrences
         self._game_events: list[GameEvent] = []
+
+        # the empire keeps track of all mobile unit groups (armies) it controls
+        # each city also keeps track of the mobile unit groups currently within it
+        self._mobile_unit_groups: list = []
         
         # Apply ideology effects (universal and capital-exclusive)
         for ideological_effect in ideology.effects:
@@ -189,6 +196,8 @@ class Empire(GameObject, HasAllegianceMixin):
         """
         city.set_allegiance(self)
         self._cities.append(city)
+        if city.gamenode is not None: 
+            city.gamenode.claim_for_empire(self)
         
         # Apply all ideology effects to the newly added city
         # This ensures all cities receive the same empire-wide effects
@@ -279,6 +288,7 @@ class Empire(GameObject, HasAllegianceMixin):
                    diminishing returns near the extremes, preventing easy saturation.
         """
         self._raw_efficiency += float(amount)
+        # print("ADDED", float(amount), "RAW EFFICIENCY LOL")
     
     def add_corruption(self, amount: float) -> None:
         """
@@ -387,7 +397,7 @@ class Empire(GameObject, HasAllegianceMixin):
             return False, f"Cannot execute {action.name}: {reason}"
         
         # Deduct cost from capital
-        if action.cost_wealth > 0 and self.capital is not None:
+        if action.cost_wealth(self.efficiency) > 0 and self.capital is not None:
             self.capital.expend_city_resources(
                 ExpendableCityResources(wealth=action.cost_wealth),
                 tag="government_action"
@@ -452,6 +462,67 @@ class Empire(GameObject, HasAllegianceMixin):
         for city in self._cities:
             print("updating city", city)
             city.update()
+
+        for mobile_unit_group in self._mobile_unit_groups:
+            mobile_unit_group.update()
+            # if the mobile unit group has changed allegiance, remove it from this empire
+            if mobile_unit_group.allegiance is not self:
+                if mobile_unit_group.allegiance is None:
+                    continue
+                mobile_unit_group.allegiance.add_mobile_unit_group(mobile_unit_group)
+                self._mobile_unit_groups.remove(mobile_unit_group)
+
+
+    @private_client_property
+    def stability(self) -> float:
+        """
+        Number that summarizes the overall conditions of the empire.
+        Simply calculated as average of all cities' morale.
+        Returns:
+            float: Stability value between 0 and 100.
+        """
+        if not self._cities:
+            return 0.0
+        total_morale = sum(city.morale for city in self._cities)
+        return total_morale / len(self._cities)
+    
+    @public_client_property
+    def score(self) -> float:
+        """
+        Calculate the empire's score based on various factors.
+        Returns:
+            float: The calculated score.
+        """
+        num_cities = len(self._cities)
+
+        city_score = num_cities * 100
+        knowledge_score = self._knowledge * 0.1
+        food_score = 0.0
+        timber_score = 0.0
+        metal_score = 0.0
+        wealth_score = 0.0
+        building_score = 0.0
+        army_score = 0.0
+        population_score = 0.0
+        for city in self._cities:
+            food_score += city.expendable_city_resources.food * 0.5  # food is most important and rarer because of how much is consumed
+            timber_score += city.expendable_city_resources.timber * 0.1
+            metal_score += city.expendable_city_resources.metal * 0.1
+            wealth_score += city.expendable_city_resources.wealth * 0.08 # wealth is easiest to obtain, so lowest weight
+            building_score += sum(building.level * building.size * 0.25 for building in city._buildings)
+            army_score += sum(army.size * 0.5 for army in city.gamenode._armies)
+            population_score += city.total_population * 0.2
+        total_score = (city_score + knowledge_score + food_score + timber_score +
+                       metal_score + wealth_score + building_score + army_score)
+
+        return total_score
+    
+    def add_mobile_unit_group(self, group: MobileUnitGroup) -> None:
+        """
+        Add a mobile unit group to this empire's control
+        """
+        if group not in self._mobile_unit_groups:
+            self._mobile_unit_groups.append(group)
 
 
 class EmptyEmpire(Empire):
