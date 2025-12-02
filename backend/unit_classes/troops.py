@@ -9,7 +9,7 @@ from ..entities.army import Troop, ArmyAttributes
 from ..systems.data import ExpendableCityResources
 from ..systems.effects import Effect
 from ..systems.job_requirements import ContingentOnInfo, JobRequirements
-from .buildings import Barracks, Farm, Walls
+from .buildings import Barracks, Farm, Walls, Stable
 
 
 class Archer(Troop):
@@ -44,6 +44,42 @@ class Archer(Troop):
         damage_per_tick=1
     )
     description = "A good old fashion archer."
+    
+    def __init__(self):
+        super().__init__()
+
+class Cavalry(Troop):
+    """
+    A ranged combat troop that deals moderate damage.
+    
+    Archers require a Barracks to be produced and consume ongoing resources.
+    """
+    name = "Cavalry"
+    size = 1
+    job_num_ticks = 4
+    effect = Effect(
+        duration_in_ticks=0,
+        expendable_city_resources_per_tick=ExpendableCityResources(
+            wealth=10
+        )
+    )
+    job_requirements = JobRequirements(
+        expendable_city_resources_level1=ExpendableCityResources(
+            wealth=4,
+            food=4
+        ),
+        workers_needed_level1=0,
+        unit_types_contingent_on=[ContingentOnInfo(
+            unit_class=Stable,
+            minimum_level_needed=1
+        )]
+    )
+    base_attributes = ArmyAttributes(
+        hitpoints=6,
+        speed=8,
+        damage_per_tick=3
+    )
+    description = "Horses."
     
     def __init__(self):
         super().__init__()

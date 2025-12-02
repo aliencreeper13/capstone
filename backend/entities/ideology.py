@@ -100,7 +100,7 @@ class Ideology(GameObject):
         """
         # if the ideology is anything other than Anarchy, return TaxAction
         # if the ideology is Anarchy, return empty list
-        if cls.__name__ == 'Anarchy':
+        if isinstance(cls, Anarchy):
             return []
         else:
             return [TaxAction()]
@@ -260,14 +260,17 @@ class Anarchy(Ideology):
                     metal=-5,
                     wealth=-5
                 ),
-                new_people_per_tick=5,  # Additional population growth
+                theoretical_new_people_per_tick=5,  # Additional population growth
                 raw_efficiency_per_tick=-15, # efficiency penalty to simulate mismanagement
             )
         ],
         autonomy=99,
         government_actions=[])  # Anarchic cities have very high autonomy 
                       # autonomy (can't be 100 because that would make player action impossible)
-
+    
+    @property
+    def government_actions(self):
+        return []
 
 class Socialism(Ideology):
     """
