@@ -418,6 +418,8 @@ class GameServer:
         if self.user_empire is None:
             return []
         # return self.user_empire.cities
+
+        
         return list(set(self.user_empire.cities)) # temp fix: Workaround duplicate references to capital city in empire
 
     def start_auto_tick(self):
@@ -647,11 +649,11 @@ class GameServer:
                 name=self.user_empire.name if hasattr(self.user_empire, 'name') else "Empire",
                 knowledge=self.user_empire.knowledge,
                 ideology=self.user_empire._ideology.__class__.__name__,
-                capital_name=city.name if hasattr(city, 'name') else "Capital",
+                capital_name=self.user_empire.capital.name,
                 total_population=PopulationData(
-                    total=total_pop,
-                    employable=employable,
-                    employed=employed
+                    total=int(total_pop),
+                    employable=int(employable),
+                    employed=int(employed)
                 ),
                 total_resources=ResourceData(
                     food=city._resources.food,
@@ -661,7 +663,7 @@ class GameServer:
                 ),
                 efficiency=self.user_empire.efficiency,
                 score=self.user_empire.score,
-                num_cities=len(self.user_empire.cities)
+                num_cities=len(set(self.user_empire.cities))  # temp fix to not count duplicates
             )
             
             return GameStateResponse(
@@ -972,7 +974,7 @@ class GameServer:
     def get_available_mobile_units(self, city_idx: Optional[int] = None) -> AvailableMobileUnitsData:
         """Get available mobile units (troops and passive units) for creation in a city."""
         with self.lock:
-            from .unit_classes.troops import Archer
+            from .unit_classes.troops import Archer, Cavalry
             from .unit_classes.passive_units import Settler
             from .systems.job_requirements import ContingentOnInfo
             
@@ -981,7 +983,7 @@ class GameServer:
                 raise HTTPException(status_code=500, detail="City not initialized")
             
             # Get all available unit classes
-            all_unit_classes = [Archer, Settler]
+            all_unit_classes = [Archer, Cavalry, Settler]
             
             troops = []
             passive_units = []
@@ -1047,7 +1049,7 @@ class GameServer:
     def create_mobile_unit(self, unit_type: str) -> Dict:
         """Create a mobile unit (troop or passive unit) in the selected city."""
         with self.lock:
-            from .unit_classes.troops import Archer
+            from .unit_classes.troops import Archer, Cavalry
             from .unit_classes.passive_units import Settler
             from .systems.job import CreationJob
             
@@ -1059,6 +1061,7 @@ class GameServer:
                 # Map unit type names to classes
                 unit_classes = {
                     "Archer": Archer,
+                    "Cavalry": Cavalry,
                     "Settler": Settler,
                 }
                 
