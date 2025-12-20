@@ -3,7 +3,7 @@ mistakes, let me know.
 
 # Civilization Empire Builder
 
-A browser-based strategy game where empires fight for control over a dynamic world map. Manage resources, build cities, construct buildings, train armies, and lead your civilization to victory! 
+A browser-based strategy game where empires fight for control over a dynamic world map. Manage resources, build cities, construct buildings, train armies, and lead your civilization to victory! Important note: This game is not yet complete, but continues to expand as I add new features!
 
 ## Project Structure
 
